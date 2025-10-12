@@ -22,8 +22,8 @@ export default function Dashboard() {
     const diagram = transform(plantUmlCode);
     setDiagramUrl(
       `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(
-        plantUmlCode
-      )}`
+        plantUmlCode,
+      )}`,
     );
     debounce(() => setOpenApiSchema(diagram), 1);
   }, []);
@@ -32,7 +32,7 @@ export default function Dashboard() {
     setPlantUmlCode(event);
     const diagram = transform(plantUmlCode);
     setDiagramUrl(
-      `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(event)}`
+      `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(event)}`,
     );
     console.log(diagramUrl);
     setOpenApiSchema(diagram);

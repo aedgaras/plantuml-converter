@@ -96,7 +96,7 @@ export function transform(umlText: string) {
       attributes: attributes,
       methods: methods,
     };
-      
+
     if (type === "interface") {
       interfaces.push(obj);
     } else {

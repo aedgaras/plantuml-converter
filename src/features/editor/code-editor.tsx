@@ -1,35 +1,43 @@
-"use client"
+"use client";
 
-import { useRef } from "react"
-import dynamic from "next/dynamic"
-import { cn } from "@/lib/utils"
-import { definePlantUmlLanguage } from "./utils"
+import { useRef } from "react";
+import dynamic from "next/dynamic";
+import { cn } from "@/lib/utils";
+import { definePlantUmlLanguage } from "./utils";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-gray-100 dark:bg-gray-800 animate-pulse" />,
-})
+  loading: () => (
+    <div className="h-full w-full bg-gray-100 dark:bg-gray-800 animate-pulse" />
+  ),
+});
 
 interface CodeEditorProps {
-  value: string
-  onChange: (value: string) => void
-  language: string
-  height?: string | number
-  className?: string
+  value: string;
+  onChange: (value: string) => void;
+  language: string;
+  height?: string | number;
+  className?: string;
 }
 
-export function CodeEditor({ value, onChange, language, height = "100%", className = "" }: CodeEditorProps) {
-  const editorRef = useRef<any>(null)
+export function CodeEditor({
+  value,
+  onChange,
+  language,
+  height = "100%",
+  className = "",
+}: CodeEditorProps) {
+  const editorRef = useRef<any>(null);
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
-    editorRef.current = editor
+    editorRef.current = editor;
 
     // Define PlantUML language if it's being used
     if (language === "plantuml") {
       try {
-        definePlantUmlLanguage(monaco)
+        definePlantUmlLanguage(monaco);
       } catch (error) {
-        console.error("Error defining PlantUML language:", error)
+        console.error("Error defining PlantUML language:", error);
       }
     }
 
@@ -50,18 +58,18 @@ export function CodeEditor({ value, onChange, language, height = "100%", classNa
         },
         wordWrap: "on",
         fixedOverflowWidgets: true,
-      })
+      });
     } catch (error) {
-      console.error("Error updating editor options:", error)
+      console.error("Error updating editor options:", error);
     }
 
     // Force layout update
     try {
-      editor.layout()
+      editor.layout();
     } catch (error) {
-      console.error("Error updating editor layout:", error)
+      console.error("Error updating editor layout:", error);
     }
-  }
+  };
 
   return (
     <div className={cn("h-full w-full relative overflow-hidden", className)}>
@@ -91,5 +99,5 @@ export function CodeEditor({ value, onChange, language, height = "100%", classNa
         onMount={handleEditorDidMount}
       />
     </div>
-  )
+  );
 }
