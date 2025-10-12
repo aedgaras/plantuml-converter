@@ -5,13 +5,13 @@ import plantumlEncoder from "plantuml-encoder";
 import { useCallback, useEffect, useState } from "react";
 import { CodeEditor } from "../editor/code-editor";
 import { DEFAULT_PLANTUML } from "../editor/utils";
-import { useTransform } from "../transformator/use-transform";
+import { useTransformator } from "../transformator/use-transformator";
 
 export default function Dashboard() {
   const [plantUmlCode, setPlantUmlCode] = useState(DEFAULT_PLANTUML);
   const [openApiSchema, setOpenApiSchema] = useState("");
   const [diagramUrl, setDiagramUrl] = useState("");
-  const { transform } = useTransform();
+  const { transform } = useTransformator();
 
   useEffect(() => {
     generateDiagram();
@@ -22,8 +22,8 @@ export default function Dashboard() {
     const diagram = transform(plantUmlCode);
     setDiagramUrl(
       `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(
-        plantUmlCode,
-      )}`,
+        plantUmlCode
+      )}`
     );
     debounce(() => setOpenApiSchema(diagram), 1);
   }, []);
@@ -32,7 +32,7 @@ export default function Dashboard() {
     setPlantUmlCode(event);
     const diagram = transform(plantUmlCode);
     setDiagramUrl(
-      `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(event)}`,
+      `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(event)}`
     );
     console.log(diagramUrl);
     setOpenApiSchema(diagram);

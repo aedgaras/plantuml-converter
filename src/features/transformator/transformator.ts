@@ -1,50 +1,13 @@
-type AccessModifier = "public" | "private" | "protected" | "package";
-
-type UMLAttribute = {
-  name: string;
-  type?: string;
-  access: AccessModifier;
-};
-
-type UMLMethod = {
-  name: string;
-  returnType?: string;
-  access: AccessModifier;
-};
-
-type UMLClassType = "class" | "interface";
-
-type UMLClassLike = {
-  name: string;
-  type: UMLClassType;
-  attributes: UMLAttribute[];
-  methods: UMLMethod[];
-};
-
-type UMLEnum = {
-  name: string;
-  values: string[];
-};
-
-type UMLRelation = {
-  from: string;
-  to: string;
-  type:
-    | "association"
-    | "inheritance"
-    | "composition"
-    | "aggregation"
-    | "dependency"
-    | "unknown";
-  cardinality?: string;
-};
-
-type UMLDiagram = {
-  classes: UMLClassLike[];
-  interfaces: UMLClassLike[];
-  enums: UMLEnum[];
-  relations: UMLRelation[];
-};
+import {
+  AccessModifier,
+  UMLAttribute,
+  UMLClassLike,
+  UMLClassType,
+  UMLDiagram,
+  UMLEnum,
+  UMLMethod,
+  UMLRelation,
+} from "./types";
 
 export function transform(umlText: string) {
   const classes: UMLClassLike[] = [];
@@ -131,6 +94,18 @@ export function transform(umlText: string) {
   }
 
   const diagram: UMLDiagram = { classes, interfaces, enums, relations };
+  if (classes) {
+    diagram.classes = classes;
+  }
+  if (interfaces) {
+    diagram.interfaces = interfaces;
+  }
+  if (enums) {
+    diagram.enums = enums;
+  }
+  if (relations) {
+    diagram.relations = relations;
+  }
   return JSON.stringify(diagram, null, 2);
 }
 
