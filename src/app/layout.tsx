@@ -10,7 +10,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "PlantUML to OpenAPI Converter",
   description: "Convert PlantUML diagrams to OpenAPI schemas",
-    generator: 'v0.app'
 }
 
 export default function RootLayout({
