@@ -1,6 +1,7 @@
 "use client";
 
 import { debounce } from "@/src/lib/utils";
+import plantumlEncoder from "plantuml-encoder";
 import { useCallback, useEffect, useState } from "react";
 import { CodeEditor } from "../editor/code-editor";
 import { DEFAULT_PLANTUML } from "../editor/utils";
@@ -9,28 +10,31 @@ import { useTransform } from "../transformator/use-transform";
 export default function Dashboard() {
   const [plantUmlCode, setPlantUmlCode] = useState(DEFAULT_PLANTUML);
   const [openApiSchema, setOpenApiSchema] = useState("");
-  const [mounted, setMounted] = useState(false);
+  const [diagramUrl, setDiagramUrl] = useState("");
   const { transform } = useTransform();
 
   useEffect(() => {
-    setMounted(true);
+    generateDiagram();
+    setOpenApiSchema(transform(plantUmlCode));
   }, []);
 
   const generateDiagram = useCallback(() => {
     const diagram = transform(plantUmlCode);
+    setDiagramUrl(
+      `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(
+        plantUmlCode
+      )}`
+    );
     debounce(() => setOpenApiSchema(diagram), 1);
   }, []);
 
-  useEffect(() => {
-    if (mounted) {
-      generateDiagram();
-    }
-  }, [mounted, generateDiagram]);
-
   const handleUmlChange = (event: string) => {
-
     setPlantUmlCode(event);
     const diagram = transform(plantUmlCode);
+    setDiagramUrl(
+      `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(event)}`
+    );
+    console.log(diagramUrl);
     setOpenApiSchema(diagram);
   };
 
@@ -59,7 +63,7 @@ export default function Dashboard() {
             <div className="flex-1 overflow-hidden">
               <CodeEditor
                 value={plantUmlCode}
-                onChange={(value) => handleUmlChange(value)}
+                onChange={handleUmlChange}
                 language="plantuml"
                 height="100%"
               />
@@ -85,53 +89,24 @@ export default function Dashboard() {
         </div>
 
         {/* Bottom: Diagram */}
-        {/* <div
+        <div
           className="border-t border-gray-200 dark:border-gray-700"
-          style={{ height: isDiagramCollapsed ? "auto" : "300px" }}
+          style={{ height: "auto" }}
         >
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                {isDiagramCollapsed ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronUp className="h-4 w-4" />
-                )}
-              </Button>
               <h2 className="font-medium text-gray-700 dark:text-gray-200">
                 Diagram Preview
               </h2>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 bg-transparent"
-              onClick={downloadDiagram}
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline ml-1">Download</span>
-            </Button>
           </div>
-          {!isDiagramCollapsed && (
-            <div className="flex h-[calc(300px-43px)] items-center justify-center overflow-auto p-4 bg-white dark:bg-gray-800">
-              {isGenerating ? (
-                <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-              ) : (
-                <img
-                  src={diagramUrl || "/placeholder.svg"}
-                  alt="PlantUML Diagram"
-                  className="max-h-full max-w-full object-contain"
-                />
-              )}
-            </div>
-          )}
-        </div> */}
+          <img
+            src={diagramUrl === "" ? "./placeholder.svg" : diagramUrl}
+            alt="PlantUML Diagram"
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
       </main>
-
-      {/* <SettingsDrawer
-        open={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      /> */}
     </div>
   );
 }

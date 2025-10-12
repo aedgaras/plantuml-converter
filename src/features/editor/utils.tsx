@@ -134,7 +134,7 @@ const plantUmlTokenProvider: IMonarchLanguage = {
         "modifier",
       ],
       [
-        /\b(String|Integer|Boolean|Double|Float|Long|Short|Byte|Char|Object|Void|List|Map|Set|Collection|ArrayList|HashMap|HashSet|LinkedList)\b/,
+        /\b(String|Integer|Boolean|Double|Float|Long|Short|Byte|Char|Object|Void|List|Map|Set|Collection|ArrayList|HashMap|HashSet|LinkedList|Int|void)\b/,
         "type",
       ],
       [/".*?"/, "string"],
@@ -193,55 +193,3 @@ Person <|-- Student
 Person o-- "1..*" Address
 
 @enduml`;
-
-export const DEFAULT_OPENAPI = `{
-  "openapi": "3.0.0",
-  "info": {
-    "title": "Pet API",
-    "version": "1.0.0",
-    "description": "API for managing pets and owners"
-  },
-  "paths": {
-    "/pets": {
-      "get": {
-        "summary": "Get all pets",
-        "responses": {
-          "200": {
-            "description": "List of pets",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Pet"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Pet": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string" },
-          "age": { "type": "integer" },
-          "species": { "type": "string" },
-          "ownerId": { "type": "string" }
-        }
-      },
-      "Owner": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string" },
-          "email": { "type": "string" },
-          "phone": { "type": "string" }
-        }
-      }
-    }
-  }
-}`;
