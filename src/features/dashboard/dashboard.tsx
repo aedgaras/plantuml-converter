@@ -3,6 +3,7 @@
 import { debounce } from "@/src/lib/utils";
 import plantumlEncoder from "plantuml-encoder";
 import { useCallback, useEffect, useState } from "react";
+import YAML from "yaml";
 import { CodeEditor } from "../editor/code-editor";
 import { DEFAULT_PLANTUML } from "../editor/utils";
 import { useTransformator } from "../transformator/use-transformator";
@@ -15,7 +16,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     generateDiagram();
-    setOpenApiSchema(transform(plantUmlCode));
+    setOpenApiSchema(YAML.stringify(transform(plantUmlCode)));
   }, []);
 
   const generateDiagram = useCallback(() => {
@@ -25,7 +26,7 @@ export default function Dashboard() {
         plantUmlCode
       )}`
     );
-    debounce(() => setOpenApiSchema(diagram), 1);
+    debounce(() => setOpenApiSchema(YAML.stringify(diagram)), 1);
   }, []);
 
   const handleUmlChange = (event: string) => {
@@ -35,12 +36,11 @@ export default function Dashboard() {
       `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(event)}`
     );
     console.log(diagramUrl);
-    setOpenApiSchema(diagram);
+    setOpenApiSchema(YAML.stringify(diagram));
   };
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
       <header className="border-b bg-white px-6 py-3 shadow-sm border-gray-200 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
@@ -49,7 +49,6 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex flex-1 flex-col overflow-hidden">
         {/* Top section with editors */}
         <div className="flex flex-1 flex-col md:flex-row">
@@ -70,7 +69,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right: OpenAPI schema */}
           <div className="flex h-1/2 w-full flex-col md:h-full md:w-1/2">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
               <h2 className="font-medium text-gray-700 dark:text-gray-200">
@@ -81,14 +79,13 @@ export default function Dashboard() {
               <CodeEditor
                 value={openApiSchema}
                 onChange={() => {}}
-                language="json"
+                language="yaml"
                 height="100%"
               />
             </div>
           </div>
         </div>
 
-        {/* Bottom: Diagram */}
         <div
           className="border-t border-gray-200 dark:border-gray-700"
           style={{ height: "auto" }}

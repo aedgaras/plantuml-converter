@@ -26,6 +26,30 @@ export type UMLEnum = {
   values: string[];
 };
 
+export type UMLCardinalityType = "exact" | "range" | "many" | "custom";
+
+export type UMLCardinality =
+  | {
+      type: "exact";
+      raw: string;
+      value: number;
+    }
+  | {
+      type: "range";
+      raw: string;
+      min?: number;
+      max?: number;
+    }
+  | {
+      type: "many";
+      raw: string;
+    }
+  | {
+      type: "custom";
+      raw: string;
+      label: string;
+    };
+
 export type UMLRelation = {
   from: string;
   to: string;
@@ -36,7 +60,9 @@ export type UMLRelation = {
     | "aggregation"
     | "dependency"
     | "unknown";
-  cardinality?: string;
+  fromCardinality?: UMLCardinality;
+  toCardinality?: UMLCardinality;
+  cardinality?: UMLCardinality;
 };
 
 export type UMLDiagram = {

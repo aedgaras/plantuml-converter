@@ -1,7 +1,7 @@
-import { transform } from "./transformator";
+import { transformPlantUmlToOpenApi } from "./shared/shared-transformator";
 
 export function useTransformator() {
   return {
-    transform: transform,
+    transform: transformPlantUmlToOpenApi,
   };
 }

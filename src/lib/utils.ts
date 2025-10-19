@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number,
+  wait: number
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -23,3 +23,20 @@ export function debounce<T extends (...args: any[]) => any>(
     timeout = setTimeout(later, wait);
   };
 }
+
+export const RELATION_SYMBOLS = [
+  "<|--",
+  "--|>",
+  "<|..",
+  "..|>",
+  "<--",
+  "-->",
+  "*--",
+  "--*",
+  "o--",
+  "--o",
+  "<..",
+  "..>",
+  "--",
+  "..",
+];
