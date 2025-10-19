@@ -181,6 +181,15 @@ class Person {
   #address: String
   +greet(): void
 }
+
+class Student {
+  +module: String
+}
+
+class Address {
+  +address: String
+}
+
 interface Speakable {
   +speak(): void
 }
@@ -191,5 +200,4 @@ enum Gender {
 
 Person <|-- Student
 Person o-- "1..*" Address
-
 @enduml`;
