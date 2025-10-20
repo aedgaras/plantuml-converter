@@ -9,6 +9,8 @@ import {
   OpenApiArraySchema,
   OpenApiDocument,
   OpenApiObjectSchema,
+  OpenApiOperation,
+  OpenApiPathItem,
   OpenApiSchema,
 } from "./open-api-types";
 
@@ -39,6 +41,8 @@ const PRIMITIVE_TYPE_MAP: Record<
   decimal: { type: "number", format: "double" },
   email: { type: "string", format: "email" },
 };
+
+const ERROR_SCHEMA_NAME = "ApiError";
 
 export function transformToOpenApi(
   plantUMLDiagram: UMLDiagram
@@ -103,6 +107,9 @@ export function transformToOpenApi(
     }
   }
 
+  const errorRef = ensureErrorSchema(schemas);
+  const paths = buildCrudPaths(classes, schemas, errorRef);
+
   return {
     openapi: "3.1.0",
     info: {
@@ -110,7 +117,7 @@ export function transformToOpenApi(
       version: "1.0.0",
       description: "OpenAPI schema generated from PlantUML diagram.",
     },
-    paths: {},
+    paths,
     components: {
       schemas,
     },
@@ -327,4 +334,232 @@ function toPropertyName(name: string) {
 
 function toComponentRef(name: string) {
   return `#/components/schemas/${name}`;
+}
+
+function buildCrudPaths(
+  classes: UMLDiagram["classes"],
+  schemas: Record<string, OpenApiSchema>,
+  errorSchemaRef: string
+): Record<string, OpenApiPathItem> {
+  const paths: Record<string, OpenApiPathItem> = {};
+  if (!classes) {
+    return paths;
+  }
+
+  for (const umlClass of classes) {
+    const resourceName = umlClass.name;
+    if (!schemas[resourceName]) {
+      continue;
+    }
+
+    const pluralResource = toPluralKebabCase(resourceName);
+    const collectionPath = `/${pluralResource}`;
+    const itemPath = `${collectionPath}/{id}`;
+    const tag = resourceName;
+    const resourceRef = toComponentRef(resourceName);
+
+    paths[collectionPath] = {
+      summary: `${resourceName} collection`,
+      get: buildListOperation(tag, resourceRef),
+      post: buildCreateOperation(tag, resourceRef, errorSchemaRef),
+    };
+
+    paths[itemPath] = {
+      summary: `${resourceName} item`,
+      get: buildGetOperation(tag, resourceRef, errorSchemaRef),
+      put: buildUpdateOperation(tag, resourceRef, errorSchemaRef),
+      delete: buildDeleteOperation(tag, errorSchemaRef),
+    };
+  }
+
+  return paths;
+}
+
+function buildListOperation(
+  tag: string,
+  resourceRef: string
+): OpenApiOperation {
+  return {
+    summary: `List ${tag}s`,
+    tags: [tag],
+    responses: {
+      "200": {
+        description: `List of ${tag}s`,
+        content: {
+          "application/json": {
+            schema: {
+              type: "array",
+              items: refSchema(resourceRef),
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildCreateOperation(
+  tag: string,
+  resourceRef: string,
+  errorRef: string
+): OpenApiOperation {
+  return {
+    summary: `Create ${tag}`,
+    tags: [tag],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: refSchema(resourceRef),
+        },
+      },
+    },
+    responses: {
+      "201": {
+        description: `${tag} created`,
+        content: {
+          "application/json": {
+            schema: refSchema(resourceRef),
+          },
+        },
+      },
+      "400": buildErrorResponse("Invalid payload", errorRef),
+    },
+  };
+}
+
+function buildGetOperation(
+  tag: string,
+  resourceRef: string,
+  errorRef: string
+): OpenApiOperation {
+  return {
+    summary: `Get ${tag}`,
+    tags: [tag],
+    parameters: [buildIdParameter(tag)],
+    responses: {
+      "200": {
+        description: `${tag} details`,
+        content: {
+          "application/json": {
+            schema: refSchema(resourceRef),
+          },
+        },
+      },
+      "404": buildErrorResponse(`${tag} not found`, errorRef),
+    },
+  };
+}
+
+function buildUpdateOperation(
+  tag: string,
+  resourceRef: string,
+  errorRef: string
+): OpenApiOperation {
+  return {
+    summary: `Update ${tag}`,
+    tags: [tag],
+    parameters: [buildIdParameter(tag)],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: refSchema(resourceRef),
+        },
+      },
+    },
+    responses: {
+      "200": {
+        description: `${tag} updated`,
+        content: {
+          "application/json": {
+            schema: refSchema(resourceRef),
+          },
+        },
+      },
+      "404": buildErrorResponse(`${tag} not found`, errorRef),
+    },
+  };
+}
+
+function buildDeleteOperation(tag: string, errorRef: string): OpenApiOperation {
+  return {
+    summary: `Delete ${tag}`,
+    tags: [tag],
+    parameters: [buildIdParameter(tag)],
+    responses: {
+      "204": {
+        description: `${tag} deleted`,
+      },
+      "404": buildErrorResponse(`${tag} not found`, errorRef),
+    },
+  };
+}
+
+function buildIdParameter(tag: string) {
+  return {
+    name: "id",
+    in: "path" as const,
+    required: true,
+    schema: {
+      type: "string",
+    },
+    description: `${tag} identifier`,
+  };
+}
+
+function toPluralKebabCase(value: string): string {
+  const kebab = value
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+
+  if (kebab.endsWith("s")) {
+    return kebab;
+  }
+
+  if (/(x|z|ch|sh)$/.test(kebab)) {
+    return `${kebab}es`;
+  }
+
+  if (kebab.endsWith("y") && !/[aeiou]y$/.test(kebab)) {
+    return kebab.slice(0, -1) + "ies";
+  }
+
+  return `${kebab}s`;
+}
+
+function ensureErrorSchema(
+  schemas: Record<string, OpenApiSchema>
+): string {
+  if (!schemas[ERROR_SCHEMA_NAME]) {
+    schemas[ERROR_SCHEMA_NAME] = {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+        code: { type: "string" },
+      },
+      required: ["message"],
+      description: "Standard error payload.",
+    };
+  }
+  return toComponentRef(ERROR_SCHEMA_NAME);
+}
+
+function buildErrorResponse(
+  description: string,
+  errorRef: string
+) {
+  return {
+    description,
+    content: {
+      "application/json": {
+        schema: refSchema(errorRef),
+      },
+    },
+  };
+}
+
+function refSchema(ref: string): OpenApiSchema {
+  return { $ref: ref };
 }

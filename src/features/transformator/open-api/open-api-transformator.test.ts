@@ -47,9 +47,103 @@ describe("transformToOpenApi", () => {
       title: "PlantUML Generated API",
       version: "1.0.0",
     });
-    expect(doc.paths).toEqual({});
-
+    const personsPath = doc.paths["/persons"] as any;
     const schemas = doc.components.schemas;
+
+    expect(personsPath).toMatchObject({
+      summary: "Person collection",
+      get: {
+        summary: "List Persons",
+        responses: {
+          "200": {
+            description: "List of Persons",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Person" },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Create Person",
+        responses: {
+          "201": {
+            description: "Person created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Person" },
+              },
+            },
+          },
+          "400": {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const personItemPath = doc.paths["/persons/{id}"] as any;
+    expect(personItemPath).toMatchObject({
+      summary: "Person item",
+      get: {
+        summary: "Get Person",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Person details",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Person" },
+              },
+            },
+          },
+          "404": {
+            description: "Person not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        summary: "Delete Person",
+        responses: {
+          "204": {
+            description: "Person deleted",
+          },
+          "404": {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiError" },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(schemas.ApiError).toMatchObject({
+      type: "object",
+      properties: {
+        message: { type: "string" },
+      },
+    });
 
     expect(schemas.Gender).toEqual({
       type: "string",
@@ -138,5 +232,13 @@ describe("transformToOpenApi", () => {
 
     expect(new Set(order.required ?? [])).toEqual(new Set(["lineItem"]));
     expect(order.required?.includes("tag")).toBe(false);
+
+    const orderCollectionPath = doc.paths["/orders"] as any;
+    expect(orderCollectionPath.post.responses["201"].content).toBeDefined();
+    expect(orderCollectionPath.post.responses["400"].content).toBeDefined();
+
+    const orderItemPath = doc.paths["/orders/{id}"] as any;
+    expect(orderItemPath.put.responses["404"].content).toBeDefined();
+    expect(orderItemPath.delete.responses["404"].content).toBeDefined();
   });
 });
