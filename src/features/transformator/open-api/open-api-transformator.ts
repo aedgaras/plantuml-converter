@@ -10,6 +10,7 @@ import {
   OpenApiDocument,
   OpenApiObjectSchema,
   OpenApiOperation,
+  OpenApiParameter,
   OpenApiPathItem,
   OpenApiSchema,
 } from "./open-api-types";
@@ -91,7 +92,9 @@ export function transformToOpenApi(
       properties:
         Object.keys(draft.properties).length > 0 ? draft.properties : undefined,
       required:
-        draft.required.size > 0 ? Array.from(draft.required.values()) : undefined,
+        draft.required.size > 0
+          ? Array.from(draft.required.values())
+          : undefined,
       description: draft.description,
     };
 
@@ -196,10 +199,7 @@ function mapAttributeType(
   return { type: "string" };
 }
 
-function appendMethodsDescription(
-  draft: MutableSchema,
-  methods: UMLMethod[]
-) {
+function appendMethodsDescription(draft: MutableSchema, methods: UMLMethod[]) {
   if (!methods.length) {
     return;
   }
@@ -313,9 +313,11 @@ function analyzeCardinality(card?: UMLCardinality) {
       if (["one", "single", "singular"].some((token) => raw.includes(token))) {
         return { isArray: false, required: true };
       }
-      if (["many", "multiple", "list", "collection"].some((token) =>
-        raw.includes(token)
-      )) {
+      if (
+        ["many", "multiple", "list", "collection"].some((token) =>
+          raw.includes(token)
+        )
+      ) {
         return { isArray: true, required: false };
       }
       return { isArray: false, required: false };
@@ -496,14 +498,12 @@ function buildDeleteOperation(tag: string, errorRef: string): OpenApiOperation {
   };
 }
 
-function buildIdParameter(tag: string) {
+function buildIdParameter(tag: string): OpenApiParameter {
   return {
     name: "id",
     in: "path" as const,
     required: true,
-    schema: {
-      type: "string",
-    },
+    schema: { type: "string" as const },
     description: `${tag} identifier`,
   };
 }
@@ -529,9 +529,7 @@ function toPluralKebabCase(value: string): string {
   return `${kebab}s`;
 }
 
-function ensureErrorSchema(
-  schemas: Record<string, OpenApiSchema>
-): string {
+function ensureErrorSchema(schemas: Record<string, OpenApiSchema>): string {
   if (!schemas[ERROR_SCHEMA_NAME]) {
     schemas[ERROR_SCHEMA_NAME] = {
       type: "object",
@@ -546,10 +544,7 @@ function ensureErrorSchema(
   return toComponentRef(ERROR_SCHEMA_NAME);
 }
 
-function buildErrorResponse(
-  description: string,
-  errorRef: string
-) {
+function buildErrorResponse(description: string, errorRef: string) {
   return {
     description,
     content: {
