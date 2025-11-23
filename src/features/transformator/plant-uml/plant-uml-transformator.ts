@@ -11,77 +11,170 @@ import {
   UMLRelation,
 } from "./plant-uml-types";
 
-export function transformPlantUML(umlText: string) {
+type ClassAndInterfaceCollection = {
+  classes: UMLClassLike[];
+  interfaces: UMLClassLike[];
+};
+
+/**
+ * Converts a PlantUML textual diagram into an intermediate UML diagram object.
+ */
+export function transformPlantUML(umlText: string): UMLDiagram {
+  const normalizedText = normalizeUmlText(umlText);
+  const { classes, interfaces } = parseClassLikeDeclarations(normalizedText);
+  const enums = parseEnumDeclarations(normalizedText);
+  const relations = parseRelations(normalizedText);
+
+  return {
+    classes,
+    interfaces,
+    enums,
+    relations,
+  };
+}
+
+/**
+ * Ensures predictable line endings for downstream parsing.
+ */
+function normalizeUmlText(umlText: string): string {
+  return umlText.replace(/\r\n/g, "\n");
+}
+
+/**
+ * Extracts class and interface definitions from the UML source.
+ */
+function parseClassLikeDeclarations(
+  umlText: string
+): ClassAndInterfaceCollection {
+  const classLikeRegex = /(class|interface)\s+(\w+)\s*\{([^}]*)\}/g;
   const classes: UMLClassLike[] = [];
   const interfaces: UMLClassLike[] = [];
-  const enums: UMLEnum[] = [];
-  const relations: UMLRelation[] = [];
 
-  // Normalize newlines
-  umlText = umlText.replace(/\r\n/g, "\n");
-
-  // --- Parse Classes and Interfaces ---
-  const classLikeRegex = /(class|interface)\s+(\w+)\s*\{([^}]*)\}/g;
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = classLikeRegex.exec(umlText)) !== null) {
-    const [, type, name, body] = match;
-    const lines = body
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+    const [, rawType, name, body] = match;
+    const entity = buildClassLikeEntity(rawType as UMLClassType, name, body);
 
-    const attributes: UMLAttribute[] = [];
-    const methods: UMLMethod[] = [];
-
-    for (const line of lines) {
-      const accessSymbol = line.charAt(0);
-      const access = parseAccessModifier(accessSymbol);
-      const clean = line.replace(/^(\+|-|#|~)/, "").trim();
-
-      if (clean.includes("(")) {
-        // Method
-        const methodMatch = /^(\w+)\s*\(.*\)\s*:?(\s*\w+)?/.exec(clean);
-        if (methodMatch) {
-          const [, name, returnType] = methodMatch;
-          methods.push({ name, returnType: returnType?.trim(), access });
-        }
-      } else {
-        // Attribute
-        const attrMatch = /^(\w+)\s*:\s*(\w+)?/.exec(clean);
-        if (attrMatch) {
-          const [, name, type] = attrMatch;
-          attributes.push({ name, type, access });
-        }
-      }
-    }
-
-    const obj: UMLClassLike = {
-      name: name,
-      type: type as UMLClassType,
-      attributes: attributes,
-      methods: methods,
-    };
-
-    if (type === "interface") {
-      interfaces.push(obj);
+    if (rawType === "interface") {
+      interfaces.push(entity);
     } else {
-      classes.push(obj);
+      classes.push(entity);
     }
   }
 
-  // --- Parse Enums ---
+  return { classes, interfaces };
+}
+
+/**
+ * Builds a single UML class or interface from its raw declaration.
+ */
+function buildClassLikeEntity(
+  type: UMLClassType,
+  name: string,
+  body: string
+): UMLClassLike {
+  const { attributes, methods } = parseClassMembers(body);
+  return { name, type, attributes, methods };
+}
+
+/**
+ * Splits a class body into individual member definitions and parses each one.
+ */
+function parseClassMembers(body: string): {
+  attributes: UMLAttribute[];
+  methods: UMLMethod[];
+} {
+  const attributes: UMLAttribute[] = [];
+  const methods: UMLMethod[] = [];
+
+  const lines = body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  for (const line of lines) {
+    const member = parseClassMember(line);
+    if (!member) {
+      continue;
+    }
+
+    if (member.kind === "attribute") {
+      attributes.push(member.value);
+    } else {
+      methods.push(member.value);
+    }
+  }
+
+  return { attributes, methods };
+}
+
+type ParsedMember =
+  | { kind: "attribute"; value: UMLAttribute }
+  | { kind: "method"; value: UMLMethod };
+
+/**
+ * Parses a single class member, distinguishing between attributes and methods.
+ */
+function parseClassMember(line: string): ParsedMember | undefined {
+  const accessSymbol = line.charAt(0);
+  const access = parseAccessModifier(accessSymbol);
+  const clean = line.replace(/^(\+|-|#|~)/, "").trim();
+
+  if (!clean) {
+    return undefined;
+  }
+
+  if (clean.includes("(")) {
+    const methodMatch = /^(\w+)\s*\(.*\)\s*:?(\s*\w+)?/.exec(clean);
+    if (!methodMatch) {
+      return undefined;
+    }
+
+    const [, name, returnType] = methodMatch;
+    return {
+      kind: "method",
+      value: { name, returnType: returnType?.trim(), access },
+    };
+  }
+
+  const attrMatch = /^(\w+)\s*:\s*(\w+)?/.exec(clean);
+  if (!attrMatch) {
+    return undefined;
+  }
+
+  const [, name, type] = attrMatch;
+  return {
+    kind: "attribute",
+    value: { name, type, access },
+  };
+}
+
+/**
+ * Parses enums declared in the UML diagram.
+ */
+function parseEnumDeclarations(umlText: string): UMLEnum[] {
+  const enums: UMLEnum[] = [];
   const enumRegex = /enum\s+(\w+)\s*\{([^}]*)\}/g;
-  let enumMatch;
-  while ((enumMatch = enumRegex.exec(umlText)) !== null) {
-    const [, name, body] = enumMatch;
+
+  let match: RegExpExecArray | null;
+  while ((match = enumRegex.exec(umlText)) !== null) {
+    const [, name, body] = match;
     const values = body
       .split("\n")
-      .map((v) => v.trim())
-      .filter((v) => v.length > 0);
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
     enums.push({ name, values });
   }
 
-  // --- Parse Relations ---
+  return enums;
+}
+
+/**
+ * Parses relationship lines in the UML diagram.
+ */
+function parseRelations(umlText: string): UMLRelation[] {
+  const relations: UMLRelation[] = [];
+
   for (const line of umlText.split("\n")) {
     const relation = parseRelationLine(line);
     if (relation) {
@@ -89,22 +182,12 @@ export function transformPlantUML(umlText: string) {
     }
   }
 
-  const diagram: UMLDiagram = { classes, interfaces, enums, relations };
-  if (classes) {
-    diagram.classes = classes;
-  }
-  if (interfaces) {
-    diagram.interfaces = interfaces;
-  }
-  if (enums) {
-    diagram.enums = enums;
-  }
-  if (relations) {
-    diagram.relations = relations;
-  }
-  return diagram;
+  return relations;
 }
 
+/**
+ * Parses a single relation line into a structured representation.
+ */
 function parseRelationLine(line: string): UMLRelation | undefined {
   const trimmed = line.trim();
   if (!trimmed || !/[<>|o*.-]/.test(trimmed)) {
@@ -148,6 +231,9 @@ function parseRelationLine(line: string): UMLRelation | undefined {
   };
 }
 
+/**
+ * Finds the first relation symbol in a line, ignoring quoted text.
+ */
 function findRelationSymbol(
   line: string
 ): { symbol: string; index: number } | undefined {
@@ -185,12 +271,18 @@ function findRelationSymbol(
   return undefined;
 }
 
+/**
+ * Determines whether a dot belongs to a cardinality rather than a relation symbol.
+ */
 function isCardinalityDot(prev: string, next: string) {
   const prevIsCardinality = Boolean(prev) && /[0-9*]/.test(prev);
   const nextIsCardinality = Boolean(next) && /[0-9*]/.test(next);
   return prevIsCardinality && nextIsCardinality;
 }
 
+/**
+ * Parses the endpoints of a relation and extracts cardinality notes.
+ */
 function parseRelationEndpoint(
   segment: string
 ): { name: string; cardinalityRaw?: string } | undefined {
@@ -233,6 +325,9 @@ function parseRelationEndpoint(
   return { name, cardinalityRaw: cardinality };
 }
 
+/**
+ * Maps PlantUML access symbols to their semantic value.
+ */
 export function parseAccessModifier(symbol: string): AccessModifier {
   switch (symbol) {
     case "+":
@@ -248,6 +343,9 @@ export function parseAccessModifier(symbol: string): AccessModifier {
   }
 }
 
+/**
+ * Maps PlantUML relation symbols to a friendly type.
+ */
 export function mapRelation(symbol: string): UMLRelation["type"] {
   if (symbol.includes("<|--") || symbol.includes("--|>")) return "inheritance";
   if (symbol.includes("*--") || symbol.includes("--*")) return "composition";
@@ -263,6 +361,9 @@ export function mapRelation(symbol: string): UMLRelation["type"] {
   return "unknown";
 }
 
+/**
+ * Parses cardinality fragments (e.g. `1..*`) into structured values.
+ */
 function parseCardinality(raw?: string): UMLCardinality | undefined {
   if (!raw) {
     return undefined;

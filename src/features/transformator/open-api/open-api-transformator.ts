@@ -1,7 +1,9 @@
 import {
   UMLAttribute,
   UMLCardinality,
+  UMLClassLike,
   UMLDiagram,
+  UMLEnum,
   UMLMethod,
   UMLRelation,
 } from "../plant-uml/plant-uml-types";
@@ -19,6 +21,13 @@ type MutableSchema = {
   properties: Record<string, OpenApiSchema>;
   required: Set<string>;
   description?: string;
+};
+
+type DiagramCollections = {
+  classes: UMLClassLike[];
+  interfaces: UMLClassLike[];
+  enums: UMLEnum[];
+  relations: UMLRelation[];
 };
 
 const PRIMITIVE_TYPE_MAP: Record<
@@ -45,76 +54,44 @@ const PRIMITIVE_TYPE_MAP: Record<
 
 const ERROR_SCHEMA_NAME = "ApiError";
 
+/**
+ * Converts the intermediate UML diagram into an OpenAPI document scaffold.
+ */
 export function transformToOpenApi(
   plantUMLDiagram: UMLDiagram
 ): OpenApiDocument {
-  const classSchemas = new Map<string, MutableSchema>();
+  const collections = extractDiagramCollections(plantUMLDiagram);
+  const componentNames = collectComponentNames(
+    collections.classes,
+    collections.interfaces,
+    collections.enums
+  );
+
+  const classSchemas = buildClassSchemas(
+    collections.classes,
+    collections.interfaces,
+    componentNames,
+    collections.enums
+  );
+
   const inheritanceMap = new Map<string, string[]>();
-  const schemas: Record<string, OpenApiSchema> = {};
+  applyRelations(
+    collections.relations,
+    classSchemas,
+    inheritanceMap,
+    componentNames
+  );
 
-  const classes = plantUMLDiagram.classes ?? [];
-  const interfaces = plantUMLDiagram.interfaces ?? [];
-  const enums = plantUMLDiagram.enums ?? [];
-  const relations = plantUMLDiagram.relations ?? [];
-
-  const componentNames = new Set<string>();
-  for (const entity of [...classes, ...interfaces, ...enums]) {
-    componentNames.add(entity.name);
-  }
-
-  for (const entity of [...classes, ...interfaces]) {
-    const draft = ensureMutableSchema(classSchemas, entity.name);
-    addAttributesToDraft(
-      draft,
-      entity.attributes,
-      componentNames,
-      enums,
-      interfaces,
-      classes
-    );
-    appendMethodsDescription(draft, entity.methods);
-  }
-
-  for (const relation of relations) {
-    handleRelation(relation, classSchemas, inheritanceMap, componentNames);
-  }
-
-  for (const enumType of enums) {
-    schemas[enumType.name] = {
-      type: "string",
-      enum: enumType.values,
-    };
-  }
-
-  for (const [name, draft] of classSchemas.entries()) {
-    const schemaObject: OpenApiObjectSchema = {
-      type: "object",
-      properties:
-        Object.keys(draft.properties).length > 0 ? draft.properties : undefined,
-      required:
-        draft.required.size > 0
-          ? Array.from(draft.required.values())
-          : undefined,
-      description: draft.description,
-    };
-
-    const parents = inheritanceMap.get(name);
-    if (parents && parents.length > 0) {
-      const allOf: OpenApiSchema[] = parents.map((parent) => ({
-        $ref: toComponentRef(parent),
-      }));
-      allOf.push(schemaObject);
-      schemas[name] = { allOf };
-    } else {
-      schemas[name] = schemaObject;
-    }
-  }
-
+  const schemas = buildComponentSchemas(
+    classSchemas,
+    inheritanceMap,
+    collections.enums
+  );
   const errorRef = ensureErrorSchema(schemas);
-  const paths = buildCrudPaths(classes, schemas, errorRef);
+  const paths = buildCrudPaths(collections.classes, schemas, errorRef);
 
   return {
-    openapi: "3.0.4",
+    openapi: "3.1.0",
     info: {
       title: "PlantUML Generated API",
       version: "1.0.0",
@@ -127,6 +104,130 @@ export function transformToOpenApi(
   };
 }
 
+/**
+ * Normalizes the optional arrays on the UML diagram into concrete collections.
+ */
+function extractDiagramCollections(
+  diagram: UMLDiagram
+): DiagramCollections {
+  return {
+    classes: diagram.classes ?? [],
+    interfaces: diagram.interfaces ?? [],
+    enums: diagram.enums ?? [],
+    relations: diagram.relations ?? [],
+  };
+}
+
+/**
+ * Builds a lookup of all component names so we can emit `$ref`s later.
+ */
+function collectComponentNames(
+  classes: UMLClassLike[],
+  interfaces: UMLClassLike[],
+  enums: UMLEnum[]
+): Set<string> {
+  const componentNames = new Set<string>();
+  for (const entity of [...classes, ...interfaces, ...enums]) {
+    componentNames.add(entity.name);
+  }
+  return componentNames;
+}
+
+/**
+ * Converts UML class/interface members into mutable schema drafts.
+ */
+function buildClassSchemas(
+  classes: UMLClassLike[],
+  interfaces: UMLClassLike[],
+  componentNames: Set<string>,
+  enums: UMLEnum[]
+): Map<string, MutableSchema> {
+  const classSchemas = new Map<string, MutableSchema>();
+  for (const entity of [...classes, ...interfaces]) {
+    const draft = ensureMutableSchema(classSchemas, entity.name);
+    addAttributesToDraft(
+      draft,
+      entity.attributes,
+      componentNames,
+      enums,
+      interfaces,
+      classes
+    );
+    appendMethodsDescription(draft, entity.methods);
+  }
+  return classSchemas;
+}
+
+/**
+ * Applies relations to either attach inheritance data or add reference properties.
+ */
+function applyRelations(
+  relations: UMLRelation[],
+  classSchemas: Map<string, MutableSchema>,
+  inheritanceMap: Map<string, string[]>,
+  componentNames: Set<string>
+) {
+  for (const relation of relations) {
+    handleRelation(relation, classSchemas, inheritanceMap, componentNames);
+  }
+}
+
+/**
+ * Finalizes all schema drafts and appends enum definitions.
+ */
+function buildComponentSchemas(
+  classSchemas: Map<string, MutableSchema>,
+  inheritanceMap: Map<string, string[]>,
+  enums: UMLEnum[]
+): Record<string, OpenApiSchema> {
+  const schemas: Record<string, OpenApiSchema> = {};
+
+  for (const enumType of enums) {
+    schemas[enumType.name] = {
+      type: "string",
+      enum: enumType.values,
+    };
+  }
+
+  for (const [name, draft] of classSchemas.entries()) {
+    const schemaObject: OpenApiObjectSchema = buildSchemaObjectFromDraft(draft);
+    const parents = inheritanceMap.get(name);
+
+    if (parents && parents.length > 0) {
+      const allOf: OpenApiSchema[] = parents.map((parent) => ({
+        $ref: toComponentRef(parent),
+      }));
+      allOf.push(schemaObject);
+      schemas[name] = { allOf };
+    } else {
+      schemas[name] = schemaObject;
+    }
+  }
+
+  return schemas;
+}
+
+/**
+ * Turns the draft structure into a plain OpenAPI object schema.
+ */
+function buildSchemaObjectFromDraft(
+  draft: MutableSchema
+): OpenApiObjectSchema {
+  return {
+    type: "object",
+    properties:
+      Object.keys(draft.properties).length > 0 ? draft.properties : undefined,
+    required:
+      draft.required.size > 0
+        ? Array.from(draft.required.values())
+        : undefined,
+    description: draft.description,
+  };
+}
+
+/**
+ * Ensures there is a mutable schema draft for the provided name.
+ */
 function ensureMutableSchema(
   store: Map<string, MutableSchema>,
   name: string
@@ -137,6 +238,9 @@ function ensureMutableSchema(
   return store.get(name)!;
 }
 
+/**
+ * Adds UML attributes to the draft schema and marks required properties.
+ */
 function addAttributesToDraft(
   draft: MutableSchema,
   attributes: UMLAttribute[],
@@ -166,6 +270,9 @@ function addAttributesToDraft(
   }
 }
 
+/**
+ * Maps a UML field type to an OpenAPI schema reference or primitive.
+ */
 function mapAttributeType(
   rawType: string | undefined,
   componentNames: Set<string>,
@@ -199,6 +306,9 @@ function mapAttributeType(
   return { type: "string" };
 }
 
+/**
+ * Appends a short method signature list to the schema description.
+ */
 function appendMethodsDescription(draft: MutableSchema, methods: UMLMethod[]) {
   if (!methods.length) {
     return;
@@ -220,6 +330,9 @@ function appendMethodsDescription(draft: MutableSchema, methods: UMLMethod[]) {
     : `Metodai: ${summary}`;
 }
 
+/**
+ * Processes a relation to update inheritance records or inject component refs.
+ */
 function handleRelation(
   relation: UMLRelation,
   classSchemas: Map<string, MutableSchema>,
@@ -274,6 +387,9 @@ function handleRelation(
   }
 }
 
+/**
+ * Converts PlantUML cardinality semantics into array/required hints.
+ */
 function analyzeCardinality(card?: UMLCardinality) {
   if (!card) {
     return {
@@ -327,6 +443,9 @@ function analyzeCardinality(card?: UMLCardinality) {
   }
 }
 
+/**
+ * Produces a camel-cased property name.
+ */
 function toPropertyName(name: string) {
   if (!name) {
     return name;
@@ -334,19 +453,22 @@ function toPropertyName(name: string) {
   return name.charAt(0).toLowerCase() + name.slice(1);
 }
 
+/**
+ * Builds a `$ref` pointing to a schema component.
+ */
 function toComponentRef(name: string) {
   return `#/components/schemas/${name}`;
 }
 
+/**
+ * Creates CRUD path stubs for all discovered classes.
+ */
 function buildCrudPaths(
-  classes: UMLDiagram["classes"],
+  classes: UMLClassLike[],
   schemas: Record<string, OpenApiSchema>,
   errorSchemaRef: string
 ): Record<string, OpenApiPathItem> {
   const paths: Record<string, OpenApiPathItem> = {};
-  if (!classes) {
-    return paths;
-  }
 
   for (const umlClass of classes) {
     const resourceName = umlClass.name;
@@ -377,6 +499,9 @@ function buildCrudPaths(
   return paths;
 }
 
+/**
+ * Produces a listing operation response for a resource.
+ */
 function buildListOperation(
   tag: string,
   resourceRef: string
@@ -400,6 +525,9 @@ function buildListOperation(
   };
 }
 
+/**
+ * Produces a POST create operation for the resource.
+ */
 function buildCreateOperation(
   tag: string,
   resourceRef: string,
@@ -430,6 +558,9 @@ function buildCreateOperation(
   };
 }
 
+/**
+ * Produces a GET operation for fetching a single entity.
+ */
 function buildGetOperation(
   tag: string,
   resourceRef: string,
@@ -453,6 +584,9 @@ function buildGetOperation(
   };
 }
 
+/**
+ * Produces a PUT operation for overriding an entity.
+ */
 function buildUpdateOperation(
   tag: string,
   resourceRef: string,
@@ -484,6 +618,9 @@ function buildUpdateOperation(
   };
 }
 
+/**
+ * Produces a DELETE operation descriptor.
+ */
 function buildDeleteOperation(tag: string, errorRef: string): OpenApiOperation {
   return {
     summary: `Delete ${tag}`,
@@ -498,6 +635,9 @@ function buildDeleteOperation(tag: string, errorRef: string): OpenApiOperation {
   };
 }
 
+/**
+ * Re-usable path parameter descriptor for entity identifiers.
+ */
 function buildIdParameter(tag: string): OpenApiParameter {
   return {
     name: "id",
@@ -508,6 +648,9 @@ function buildIdParameter(tag: string): OpenApiParameter {
   };
 }
 
+/**
+ * Naively pluralizes and kebab-cases a PascalCase class name for REST paths.
+ */
 function toPluralKebabCase(value: string): string {
   const kebab = value
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
@@ -529,6 +672,9 @@ function toPluralKebabCase(value: string): string {
   return `${kebab}s`;
 }
 
+/**
+ * Ensures that a shared error payload schema exists and returns its `$ref`.
+ */
 function ensureErrorSchema(schemas: Record<string, OpenApiSchema>): string {
   if (!schemas[ERROR_SCHEMA_NAME]) {
     schemas[ERROR_SCHEMA_NAME] = {
@@ -544,6 +690,9 @@ function ensureErrorSchema(schemas: Record<string, OpenApiSchema>): string {
   return toComponentRef(ERROR_SCHEMA_NAME);
 }
 
+/**
+ * Helper for describing error responses consistently.
+ */
 function buildErrorResponse(description: string, errorRef: string) {
   return {
     description,
@@ -555,6 +704,9 @@ function buildErrorResponse(description: string, errorRef: string) {
   };
 }
 
+/**
+ * Wraps a component ref with the OpenAPI schema shape.
+ */
 function refSchema(ref: string): OpenApiSchema {
   return { $ref: ref };
 }
