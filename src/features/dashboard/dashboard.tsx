@@ -98,6 +98,8 @@ export default function Dashboard() {
     updateOutputs(event);
   };
 
+  const handleOpenAPiChange = (event: string) => {};
+
   const handleFixtureChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const { value } = event.target;
     setSelectedFixtureId(value);
@@ -183,9 +185,10 @@ export default function Dashboard() {
               <div className="flex-1 overflow-hidden">
                 <CodeEditor
                   value={openApiSchema}
-                  onChange={() => {}}
+                  onChange={handleOpenAPiChange}
                   language="yaml"
                   height="100%"
+                  readOnly={true}
                 />
               </div>
             </div>

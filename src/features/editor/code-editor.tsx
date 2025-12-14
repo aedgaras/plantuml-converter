@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef } from "react";
-import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+import { useRef } from "react";
 import { definePlantUmlLanguage } from "./utils";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -18,6 +18,7 @@ interface CodeEditorProps {
   language: string;
   height?: string | number;
   className?: string;
+  readOnly?: boolean;
 }
 
 export function CodeEditor({
@@ -26,6 +27,7 @@ export function CodeEditor({
   language,
   height = "100%",
   className = "",
+  readOnly = false,
 }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
 
@@ -44,6 +46,7 @@ export function CodeEditor({
     // Configure editor
     try {
       editor.updateOptions({
+        readOnly: readOnly,
         tabSize: 2,
         autoIndent: "full",
         formatOnPaste: true,
