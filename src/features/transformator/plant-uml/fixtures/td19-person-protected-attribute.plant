@@ -1,0 +1,5 @@
+@startuml
+class Person {
+  #address: String
+}
+@enduml

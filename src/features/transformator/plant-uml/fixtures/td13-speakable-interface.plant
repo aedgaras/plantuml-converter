@@ -1,0 +1,5 @@
+@startuml
+interface Speakable {
+  +speak(): void
+}
+@enduml

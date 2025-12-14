@@ -1,0 +1,7 @@
+@startuml
+class Person {}
+interface Speakable {
+  +speak(): void
+}
+Person ..|> Speakable
+@enduml

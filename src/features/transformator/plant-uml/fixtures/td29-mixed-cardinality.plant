@@ -1,0 +1,7 @@
+@startuml
+class Order {}
+class LineItem {}
+class Customer {}
+Order "*" -- "0..*" LineItem
+Customer "many" -- "1" Order
+@enduml

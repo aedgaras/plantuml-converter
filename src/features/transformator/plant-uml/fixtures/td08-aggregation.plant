@@ -1,0 +1,5 @@
+@startuml
+class Team {}
+class Player {}
+Team o-- Player
+@enduml

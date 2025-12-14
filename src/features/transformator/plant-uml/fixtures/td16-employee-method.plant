@@ -1,0 +1,5 @@
+@startuml
+class Employee {
+  +hire(startDate: Date): void
+}
+@enduml

@@ -1,0 +1,8 @@
+@startuml
+class Person {}
+enum Gender {
+  MALE
+  FEMALE
+}
+Person --> Gender
+@enduml

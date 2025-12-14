@@ -1,0 +1,5 @@
+@startuml
+class Person {}
+class Student {}
+Person <|-- Student
+@enduml

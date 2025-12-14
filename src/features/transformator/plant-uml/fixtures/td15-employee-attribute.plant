@@ -1,0 +1,5 @@
+@startuml
+class Employee {
+  +id: Int
+}
+@enduml

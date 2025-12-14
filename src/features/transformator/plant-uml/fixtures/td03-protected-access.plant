@@ -1,0 +1,5 @@
+@startuml
+class AccessModifiers {
+  #protectedField: String
+}
+@enduml

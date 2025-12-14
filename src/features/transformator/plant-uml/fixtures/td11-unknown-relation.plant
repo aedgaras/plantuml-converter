@@ -1,0 +1,5 @@
+@startuml
+class UnknownA {}
+class UnknownB {}
+UnknownA ?? UnknownB
+@enduml

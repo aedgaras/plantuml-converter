@@ -1,0 +1,5 @@
+@startuml
+class AccessModifiers {
+  -privateField: String
+}
+@enduml
