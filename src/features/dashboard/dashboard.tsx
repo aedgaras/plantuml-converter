@@ -28,6 +28,10 @@ export default function Dashboard() {
   const [openApiSchema, setOpenApiSchema] = useState("");
   const [diagramUrl, setDiagramUrl] = useState("");
   const [diagramSize, setDiagramSize] = useState({ width: 0, height: 0 });
+  const [openApiDiagramSize, setOpenApiDiagramSize] = useState({
+    width: 0,
+    height: 0,
+  });
   const [openApiDiagram, setOpenApiDiagram] = useState<OpenApiDocument | null>(
     null
   );
@@ -36,6 +40,21 @@ export default function Dashboard() {
   const [fixturesError, setFixturesError] = useState<string | null>(null);
   const [selectedFixtureId, setSelectedFixtureId] = useState("");
   const { transform } = useTransformator();
+
+  const openApiPlantUmlDefinition = useMemo(
+    () => buildOpenApiPlantUmlDiagram(openApiDiagram),
+    [openApiDiagram]
+  );
+
+  const openApiDiagramUrl = useMemo(() => {
+    if (!openApiPlantUmlDefinition) {
+      return "";
+    }
+
+    return `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(
+      openApiPlantUmlDefinition
+    )}`;
+  }, [openApiPlantUmlDefinition]);
 
   const updateOutputs = useCallback(
     (uml: string) => {
@@ -77,6 +96,32 @@ export default function Dashboard() {
       isCancelled = true;
     };
   }, [diagramUrl]);
+
+  useEffect(() => {
+    if (!openApiDiagramUrl) {
+      setOpenApiDiagramSize({ width: 0, height: 0 });
+      return;
+    }
+
+    let isCancelled = false;
+    const image = new Image();
+    image.src = openApiDiagramUrl;
+    image.onload = () => {
+      if (isCancelled) return;
+      setOpenApiDiagramSize({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+    };
+    image.onerror = () => {
+      if (isCancelled) return;
+      setOpenApiDiagramSize({ width: 0, height: 0 });
+    };
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [openApiDiagramUrl]);
 
   useEffect(() => {
     const fetchFixtures = async () => {
@@ -121,11 +166,6 @@ export default function Dashboard() {
     setPlantUmlCode(selected.content);
     updateOutputs(selected.content);
   };
-
-  const mermaidDefinition = useMemo(
-    () => buildMermaidDiagram(openApiDiagram),
-    [openApiDiagram]
-  );
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
@@ -237,8 +277,21 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 overflow-hidden bg-white dark:bg-gray-900">
               <div className="flex h-full w-full items-center justify-center overflow-auto p-4">
-                Diagram
-                {/* <MermaidDiagram definition={mermaidDefinition} /> */}
+                <img
+                  src={
+                    openApiDiagramUrl === ""
+                      ? "./placeholder.svg"
+                      : openApiDiagramUrl
+                  }
+                  alt="OpenAPI PlantUML Diagram"
+                  width={openApiDiagramSize.width || undefined}
+                  height={openApiDiagramSize.height || undefined}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    objectFit: "contain",
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -248,93 +301,30 @@ export default function Dashboard() {
   );
 }
 
-function MermaidDiagram({ definition }: { definition: string }) {
-  const [svg, setSvg] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function renderMermaid() {
-      if (!definition.trim()) {
-        setSvg("");
-        setError("Nėra duomenų vizualizacijai.");
-        return;
-      }
-
-      try {
-        const mermaid = await import("mermaid");
-        const mermaidAPI = mermaid.default;
-
-        mermaidAPI.initialize({ startOnLoad: false, theme: "forest" });
-        const renderId = `openapi-mermaid-${Math.random()
-          .toString(36)
-          .slice(2)}`;
-
-        const { svg } = await mermaidAPI.render(renderId, definition);
-        if (!cancelled) {
-          setSvg(svg);
-          setError(null);
-        }
-      } catch (err) {
-        console.error("Mermaid render failed", err);
-        if (!cancelled) {
-          setError("Nepavyko sugeneruoti Mermaid diagramos.");
-          setSvg("");
-        }
-      }
-    }
-
-    renderMermaid();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [definition]);
-
-  if (error) {
-    return (
-      <p className="text-sm text-red-500" role="alert">
-        {error}
-      </p>
-    );
-  }
-
-  if (!svg) {
-    return (
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Generuojama Mermaid diagrama...
-      </p>
-    );
-  }
-
-  return (
-    <div
-      className="w-full min-h-[200px]"
-      aria-label="OpenAPI Mermaid diagram"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  );
-}
-
-function buildMermaidDiagram(document: OpenApiDocument | null): string {
+function buildOpenApiPlantUmlDiagram(
+  document: OpenApiDocument | null
+): string {
   const schemas = document?.components?.schemas;
   if (!schemas || Object.keys(schemas).length === 0) {
     return "";
   }
 
-  const lines: string[] = ["classDiagram"];
+  const lines: string[] = [
+    "@startuml",
+    "skinparam classAttributeIconSize 0",
+  ];
   const relations: string[] = [];
 
   for (const [name, schema] of Object.entries(schemas)) {
-    lines.push(...buildClassBlock(name, schema));
-    relations.push(...collectRelations(name, schema));
+    lines.push(...buildPlantUmlClassBlock(name, schema));
+    relations.push(...collectPlantUmlRelations(name, schema));
   }
 
-  return [...lines, ...relations].join("\n");
+  lines.push(...relations, "@enduml");
+  return lines.join("\n");
 }
 
-function buildClassBlock(name: string, schema: OpenApiSchema): string[] {
+function buildPlantUmlClassBlock(name: string, schema: OpenApiSchema): string[] {
   if (isObjectSchema(schema) && schema.properties) {
     const block: string[] = [`class ${name} {`];
     for (const [propName, propSchema] of Object.entries(schema.properties)) {
@@ -363,7 +353,10 @@ function buildClassBlock(name: string, schema: OpenApiSchema): string[] {
   return [`class ${name}`];
 }
 
-function collectRelations(parent: string, schema: OpenApiSchema): string[] {
+function collectPlantUmlRelations(
+  parent: string,
+  schema: OpenApiSchema
+): string[] {
   const relations: string[] = [];
 
   if (isObjectSchema(schema) && schema.properties) {
@@ -386,7 +379,7 @@ function collectRelations(parent: string, schema: OpenApiSchema): string[] {
     for (const item of schema.allOf) {
       const target = resolveReferenceTarget(item);
       if (target) {
-        relations.push(`${parent} --|> ${target}`);
+        relations.push(`${target} <|-- ${parent}`);
       }
     }
   }
