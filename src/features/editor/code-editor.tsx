@@ -29,6 +29,48 @@ export function CodeEditor({
   className = "",
   readOnly = false,
 }: CodeEditorProps) {
+  const { editorRef, handleEditorDidMount } = useCodeEditor({
+    language,
+    readOnly,
+  });
+  return (
+    <div className={cn("h-full w-full relative overflow-hidden", className)}>
+      <MonacoEditor
+        height={height}
+        language={language}
+        value={value}
+        onChange={(value) => onChange(value || "")}
+        theme="vs-dark"
+        options={{
+          automaticLayout: true,
+          fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
+          fontSize: 14,
+          lineNumbers: "on",
+          roundedSelection: true,
+          scrollBeyondLastLine: true,
+          minimap: { enabled: false },
+          fixedOverflowWidgets: true,
+          scrollbar: {
+            vertical: "visible",
+            horizontal: "visible",
+            verticalScrollbarSize: 12,
+            horizontalScrollbarSize: 12,
+            alwaysConsumeMouseWheel: false,
+          },
+        }}
+        onMount={handleEditorDidMount}
+      />
+    </div>
+  );
+}
+
+const useCodeEditor = ({
+  language,
+  readOnly,
+}: {
+  language: string;
+  readOnly: boolean;
+}) => {
   const editorRef = useRef<any>(null);
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
@@ -74,33 +116,5 @@ export function CodeEditor({
     }
   };
 
-  return (
-    <div className={cn("h-full w-full relative overflow-hidden", className)}>
-      <MonacoEditor
-        height={height}
-        language={language}
-        value={value}
-        onChange={(value) => onChange(value || "")}
-        theme="vs-dark"
-        options={{
-          automaticLayout: true,
-          fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
-          fontSize: 14,
-          lineNumbers: "on",
-          roundedSelection: true,
-          scrollBeyondLastLine: true,
-          minimap: { enabled: false },
-          fixedOverflowWidgets: true,
-          scrollbar: {
-            vertical: "visible",
-            horizontal: "visible",
-            verticalScrollbarSize: 12,
-            horizontalScrollbarSize: 12,
-            alwaysConsumeMouseWheel: false,
-          },
-        }}
-        onMount={handleEditorDidMount}
-      />
-    </div>
-  );
-}
+  return { editorRef, handleEditorDidMount };
+};
