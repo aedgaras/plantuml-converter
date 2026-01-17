@@ -201,6 +201,28 @@ function buildExplicitPaths(
       .filter((entity) => hasStereotype(entity, "Response"))
       .map((entity) => entity.name),
   );
+  const parameterNames = new Set(
+    collections.classes
+      .filter((entity) => hasStereotype(entity, "Parameter"))
+      .map((entity) => entity.name),
+  );
+  const responseCandidates = new Set<string>([
+    ...responseNames,
+    ...collections.classes
+      .filter(
+        (entity) =>
+          !hasStereotype(entity, "Path") &&
+          !hasStereotype(entity, "RequestBody") &&
+          !hasStereotype(entity, "Parameter"),
+      )
+      .map((entity) => entity.name),
+    ...collections.interfaces.map((entity) => entity.name),
+    ...collections.enums.map((entity) => entity.name),
+  ]);
+  const disallowedResponseTargets = new Set([
+    ...requestBodyNames,
+    ...parameterNames,
+  ]);
 
   const paths: Record<string, OpenApiPathItem> = {};
 
@@ -222,10 +244,15 @@ function buildExplicitPaths(
         relation.from === pathClass.name && requestBodyNames.has(relation.to),
     );
 
-    const responseRelations = collections.relations.filter(
-      (relation) =>
-        relation.from === pathClass.name && responseNames.has(relation.to),
-    );
+    const responseRelations = collections.relations.filter((relation) => {
+      if (relation.from !== pathClass.name) {
+        return false;
+      }
+      if (!relation.to || disallowedResponseTargets.has(relation.to)) {
+        return false;
+      }
+      return responseCandidates.has(relation.to);
+    });
 
     const operation: OpenApiOperation = {
       summary: buildOperationSummary(pathClass.name, httpInfo.method),
@@ -347,13 +374,21 @@ function buildResponsesFromRelations(
     }
   }
 
-  responses["default"] = buildErrorResponse("Unexpected error", errorSchemaRef);
+  if (!responses["default"]) {
+    responses["default"] = buildErrorResponse(
+      "Unexpected error",
+      errorSchemaRef,
+    );
+  }
   return responses;
 }
 
 function extractStatusCode(label: string | undefined, method: string): string {
   if (label) {
     const cleaned = label.replace(/"/g, "").trim();
+    if (cleaned.toLowerCase() === "default") {
+      return "default";
+    }
     if (/^\d+$/.test(cleaned)) {
       return cleaned;
     }
@@ -611,6 +646,10 @@ function handleRelation(
   }
 
   const draft = ensureMutableSchema(classSchemas, relation.from);
+  const propertyName = deriveRelationPropertyName(relation);
+  if (!propertyName) {
+    return;
+  }
   const ref: OpenApiSchema = { $ref: toComponentRef(relation.to) };
   const cardinalityInfo = analyzeCardinality(relation.toCardinality);
   let propertySchema: OpenApiSchema = ref;
@@ -631,7 +670,6 @@ function handleRelation(
     propertySchema = arraySchema;
   }
 
-  const propertyName = toPropertyName(relation.to);
   draft.properties[propertyName] = propertySchema;
 
   if (cardinalityInfo.required) {
@@ -703,6 +741,40 @@ function toPropertyName(name: string) {
     return name;
   }
   return name.charAt(0).toLowerCase() + name.slice(1);
+}
+
+function deriveRelationPropertyName(relation: UMLRelation): string | undefined {
+  if (relation.label) {
+    const normalized = normalizeRelationLabel(relation.label);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return relation.to ? toPropertyName(relation.to) : undefined;
+}
+
+function normalizeRelationLabel(label: string): string | undefined {
+  const trimmed = label.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const underscored = trimmed.replace(/\s+/g, "_");
+  const sanitized = underscored
+    .replace(/[^A-Za-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  if (!sanitized) {
+    return undefined;
+  }
+
+  if (/^\d/.test(sanitized)) {
+    return `rel${sanitized}`;
+  }
+
+  return sanitized;
 }
 
 /**

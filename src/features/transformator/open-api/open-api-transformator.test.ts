@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { transformPlantUML } from "../plant-uml/plant-uml-transformator";
 import { transformToOpenApi } from "./open-api-transformator";
 import type { OpenApiDocument } from "./open-api-types";
+import fs from "node:fs";
+import path from "node:path";
 
 const toOpenApi = (uml: string[]): OpenApiDocument =>
   transformToOpenApi(transformPlantUML(uml.join("\n")));
@@ -197,6 +199,129 @@ describe("transformToOpenApi", () => {
         },
       ],
     });
+  });
+
+  it("uses relation labels as property names to avoid collisions", () => {
+    const doc = toOpenApi([
+      "class Order {",
+      "  +id: string",
+      "}",
+      "",
+      "class Customer {",
+      "  +id: string",
+      "}",
+      "",
+      "class PaymentMethod {",
+      "  +id: string",
+      "}",
+      "",
+      'Order --> "1" Customer : buyer',
+      'Order --> "0..*" Customer : "seller accounts"',
+      'Customer --> "0..1" PaymentMethod : default_payment_method',
+    ]);
+
+    const orderSchema = doc.components.schemas.Order as any;
+    expect(orderSchema.properties.buyer).toEqual({
+      $ref: "#/components/schemas/Customer",
+    });
+    expect(orderSchema.required).toContain("buyer");
+    expect(orderSchema.properties.seller_accounts).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/Customer" },
+    });
+    expect(orderSchema.required ?? []).not.toContain("seller_accounts");
+
+    const customerSchema = doc.components.schemas.Customer as any;
+    expect(customerSchema.properties.default_payment_method).toEqual({
+      $ref: "#/components/schemas/PaymentMethod",
+    });
+  });
+
+  it("keeps relations when composition symbols include directional arrowheads", () => {
+    const doc = toOpenApi([
+      'class "InstallStatus" {',
+      "  +id: string",
+      "}",
+      'class "InstallStatus.status" {',
+      "  +finished: boolean",
+      "}",
+      '"InstallStatus" *--> "0..1" "InstallStatus.status" : status',
+    ]);
+
+    const installStatus = doc.components.schemas.InstallStatus as any;
+    expect(installStatus.properties.status).toEqual({
+      $ref: "#/components/schemas/InstallStatusStatus",
+    });
+    expect(installStatus.required ?? []).not.toContain("status");
+  });
+
+  it("treats domain classes referenced by Path stereotypes as responses", () => {
+    const doc = toOpenApi([
+      'class "InstallStatus" {',
+      "  +id: string",
+      "}",
+      'class "getInstallStatus default" <<Response>> {',
+      "  +value: string",
+      "}",
+      'class "getInstallStatus" <<Path>> <<GET /crx/packmgr/installstatus.jsp>> {}',
+      '"getInstallStatus" ..> "1" "InstallStatus" : 200',
+      '"getInstallStatus" ..> "1" "getInstallStatus default" : default',
+    ]);
+
+    const responses =
+      doc.paths["/crx/packmgr/installstatus.jsp"]?.get?.responses;
+    expect(responses?.["200"]).toBeDefined();
+    expect(
+      responses?.["200"]?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/InstallStatus" });
+    expect(responses?.default?.content?.["application/json"]?.schema).toEqual({
+      $ref: "#/components/schemas/getInstallStatusDefault",
+    });
+  });
+
+  it("builds explicit paths for the Adobe Experience Manager fixture", () => {
+    const fixture = fs.readFileSync(
+      path.join(
+        __dirname,
+        "../../../lib/puml/adobe-experience-manager.puml",
+      ),
+      "utf8",
+    );
+    const doc = transformToOpenApi(transformPlantUML(fixture));
+
+    const expectedRoutes = [
+      "/crx/packmgr/installstatus.jsp",
+      "/libs/granite/security/truststore.json",
+      "/system/console/bundles/{name}.json",
+      "/system/console/configMgr/com.adobe.granite.auth.saml.SamlAuthenticationHandler",
+      "/authorizables/{authorizableId}/keystore",
+      "/authorizables/{authorizableId}/keystore/file",
+    ];
+
+    for (const route of expectedRoutes) {
+      expect(doc.paths[route]).toBeDefined();
+    }
+
+    expect(doc.paths["/crx/packmgr/installstatus.jsp"]?.get).toBeDefined();
+    expect(doc.paths["/libs/granite/security/truststore.json"]?.get).toBeDefined();
+    expect(doc.paths["/system/console/bundles/{name}.json"]?.get).toBeDefined();
+    const samlPath =
+      doc.paths[
+        "/system/console/configMgr/com.adobe.granite.auth.saml.SamlAuthenticationHandler"
+      ];
+    expect(samlPath?.get).toBeDefined();
+    expect(samlPath?.post).toBeDefined();
+    const keystorePath = doc.paths["/authorizables/{authorizableId}/keystore"];
+    expect(keystorePath?.get).toBeDefined();
+    expect(keystorePath?.post).toBeDefined();
+    expect(
+      doc.paths["/authorizables/{authorizableId}/keystore/file"]?.get,
+    ).toBeDefined();
+    const installStatusResponse =
+      doc.paths["/crx/packmgr/installstatus.jsp"]?.get?.responses?.["200"];
+    expect(
+      installStatusResponse?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/InstallStatus" });
   });
 
   it("interprets relation cardinalities into arrays, single refs, and required flags", () => {

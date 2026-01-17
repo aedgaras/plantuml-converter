@@ -186,6 +186,8 @@ export const useDashboard = () => {
   return {
     diagramUrl,
     diagramSize,
+    openApiDiagramUrl,
+    openApiDiagramSize,
     openApiSchema,
     selectedFixtureId,
     handleFixtureChange,
@@ -194,6 +196,5 @@ export const useDashboard = () => {
     fixturesByCategory,
     fixturesError,
     plantUmlCode,
-    openApiDiagramSize,
   };
 };

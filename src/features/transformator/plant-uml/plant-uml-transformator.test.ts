@@ -286,6 +286,24 @@ describe("transformator", () => {
       expect(relation?.type).toBe("association");
     });
 
+    it("parses relations that include directional arrowheads on compositions", () => {
+      const diagram = parseUml([
+        'class "InstallStatus" {}',
+        'class "InstallStatus.status" {}',
+        '"InstallStatus" *--> "0..1" "InstallStatus.status" : "status"',
+      ]);
+
+      const relation = getRelation(diagram, "InstallStatus", "InstallStatusStatus");
+      expect(relation).toBeTruthy();
+      expect(relation?.type).toBe("composition");
+      expectCardinality(relation?.toCardinality, {
+        type: "range",
+        raw: "0..1",
+        min: 0,
+        max: 1,
+      });
+    });
+
     it("parses `implementation` relations", () => {
       const diagram = parseUml([
         "class Person {}",

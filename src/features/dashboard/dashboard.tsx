@@ -31,6 +31,8 @@ export default function Dashboard() {
   const {
     diagramUrl,
     diagramSize,
+    openApiDiagramUrl,
+    openApiDiagramSize,
     openApiSchema,
     selectedFixtureId,
     handleFixtureChange,
@@ -132,14 +134,32 @@ export default function Dashboard() {
           maxSize={diagramPanelMaxSize}
           className="min-h-0"
         >
-          <Panel
-            title="PlantUML Diagram"
-            className="h-full"
-            contentClassName="bg-white dark:bg-gray-900 min-h-0"
-          >
-            <DiagramPreview diagramUrl={diagramUrl} diagramSize={diagramSize} />
-          </Panel>
+          <div className="flex h-full flex-col gap-4 p-4 pt-0 lg:flex-row">
+            <Panel
+              title="PlantUML Diagram"
+              className="min-h-[14rem] flex-1"
+              contentClassName="bg-white dark:bg-gray-900 min-h-0"
+            >
+              <DiagramPreview
+                diagramUrl={diagramUrl}
+                diagramSize={diagramSize}
+                label="PlantUML Diagram"
+              />
+            </Panel>
+            <Panel
+              title="OpenAPI Diagram"
+              className="min-h-[14rem] flex-1"
+              contentClassName="bg-white dark:bg-gray-900 min-h-0"
+            >
+              <DiagramPreview
+                diagramUrl={openApiDiagramUrl}
+                diagramSize={openApiDiagramSize}
+                label="OpenAPI Diagram"
+              />
+            </Panel>
+          </div>
         </ResizablePanel>
+        
       </ResizablePanelGroup>
     </div>
   );
@@ -187,15 +207,20 @@ function PanelHeader({ title, actions }: PanelHeaderProps) {
 type DiagramPreviewProps = {
   diagramUrl: string;
   diagramSize: { width: number; height: number };
+  label: string;
 };
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.25;
 
-function DiagramPreview({ diagramUrl, diagramSize }: DiagramPreviewProps) {
+function DiagramPreview({
+  diagramUrl,
+  diagramSize,
+  label,
+}: DiagramPreviewProps) {
   const fallbackUrl = diagramUrl || "./placeholder.svg";
-  const previewAlt = "PlantUML Diagram";
+  const previewAlt = label;
   const dialogScroll = useDraggableScroll();
   const [zoomLevel, setZoomLevel] = useState(1);
   const clampZoom = useCallback(
@@ -259,7 +284,7 @@ function DiagramPreview({ diagramUrl, diagramSize }: DiagramPreviewProps) {
         <button
           type="button"
           className="flex h-full min-h-0 w-full cursor-zoom-in items-center justify-center overflow-auto p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed"
-          aria-label="Open PlantUML diagram preview in a larger view"
+          aria-label={`Open ${label} preview in a larger view`}
         >
           {previewImage}
         </button>
@@ -270,7 +295,7 @@ function DiagramPreview({ diagramUrl, diagramSize }: DiagramPreviewProps) {
         aria-describedby="diagram-dialog-description"
       >
         <DialogHeader>
-          <DialogTitle>PlantUML Diagram</DialogTitle>
+          <DialogTitle>{label}</DialogTitle>
           <DialogDescription id="diagram-dialog-description">
             Scroll or drag this larger view to inspect details.
           </DialogDescription>
