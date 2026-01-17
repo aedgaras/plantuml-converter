@@ -14,6 +14,7 @@ import {
   OpenApiOperation,
   OpenApiParameter,
   OpenApiPathItem,
+  OpenApiResponse,
   OpenApiSchema,
 } from "./open-api-types";
 
@@ -50,6 +51,7 @@ const PRIMITIVE_TYPE_MAP: Record<
   number: { type: "number" },
   decimal: { type: "number", format: "double" },
   email: { type: "string", format: "email" },
+  timestamp: { type: "string", format: "date-time" },
 };
 
 const ERROR_SCHEMA_NAME = "ApiError";
@@ -58,20 +60,24 @@ const ERROR_SCHEMA_NAME = "ApiError";
  * Converts the intermediate UML diagram into an OpenAPI document scaffold.
  */
 export function transformToOpenApi(
-  plantUMLDiagram: UMLDiagram
+  plantUMLDiagram: UMLDiagram,
 ): OpenApiDocument {
   const collections = extractDiagramCollections(plantUMLDiagram);
+  const domainClasses = collections.classes.filter(
+    (entity) => !hasStereotype(entity, "Path"),
+  );
+
   const componentNames = collectComponentNames(
-    collections.classes,
+    domainClasses,
     collections.interfaces,
-    collections.enums
+    collections.enums,
   );
 
   const classSchemas = buildClassSchemas(
-    collections.classes,
+    domainClasses,
     collections.interfaces,
     componentNames,
-    collections.enums
+    collections.enums,
   );
 
   const inheritanceMap = new Map<string, string[]>();
@@ -79,16 +85,20 @@ export function transformToOpenApi(
     collections.relations,
     classSchemas,
     inheritanceMap,
-    componentNames
+    componentNames,
   );
 
   const schemas = buildComponentSchemas(
     classSchemas,
     inheritanceMap,
-    collections.enums
+    collections.enums,
   );
   const errorRef = ensureErrorSchema(schemas);
-  const paths = buildCrudPaths(collections.classes, schemas, errorRef);
+  const explicitPaths = buildExplicitPaths(collections, errorRef);
+  const fallbackPaths =
+    Object.keys(explicitPaths).length > 0
+      ? explicitPaths
+      : buildCrudPaths(domainClasses, schemas, errorRef);
 
   return {
     openapi: "3.1.0",
@@ -97,7 +107,7 @@ export function transformToOpenApi(
       version: "1.0.0",
       description: "OpenAPI schema generated from PlantUML diagram.",
     },
-    paths,
+    paths: fallbackPaths,
     components: {
       schemas,
     },
@@ -107,9 +117,7 @@ export function transformToOpenApi(
 /**
  * Normalizes the optional arrays on the UML diagram into concrete collections.
  */
-function extractDiagramCollections(
-  diagram: UMLDiagram
-): DiagramCollections {
+function extractDiagramCollections(diagram: UMLDiagram): DiagramCollections {
   return {
     classes: diagram.classes ?? [],
     interfaces: diagram.interfaces ?? [],
@@ -124,7 +132,7 @@ function extractDiagramCollections(
 function collectComponentNames(
   classes: UMLClassLike[],
   interfaces: UMLClassLike[],
-  enums: UMLEnum[]
+  enums: UMLEnum[],
 ): Set<string> {
   const componentNames = new Set<string>();
   for (const entity of [...classes, ...interfaces, ...enums]) {
@@ -140,7 +148,7 @@ function buildClassSchemas(
   classes: UMLClassLike[],
   interfaces: UMLClassLike[],
   componentNames: Set<string>,
-  enums: UMLEnum[]
+  enums: UMLEnum[],
 ): Map<string, MutableSchema> {
   const classSchemas = new Map<string, MutableSchema>();
   for (const entity of [...classes, ...interfaces]) {
@@ -151,11 +159,229 @@ function buildClassSchemas(
       componentNames,
       enums,
       interfaces,
-      classes
+      classes,
     );
     appendMethodsDescription(draft, entity.methods);
   }
   return classSchemas;
+}
+
+const SUPPORTED_HTTP_METHODS = new Set<
+  "get" | "post" | "put" | "delete" | "patch" | "options" | "head"
+>(["get", "post", "put", "delete", "patch", "options", "head"]);
+
+type HttpMethodKey =
+  | "get"
+  | "post"
+  | "put"
+  | "delete"
+  | "patch"
+  | "options"
+  | "head";
+
+function buildExplicitPaths(
+  collections: DiagramCollections,
+  errorSchemaRef: string,
+): Record<string, OpenApiPathItem> {
+  const pathClasses = collections.classes.filter((entity) =>
+    hasStereotype(entity, "Path"),
+  );
+
+  if (pathClasses.length === 0) {
+    return {};
+  }
+
+  const requestBodyNames = new Set(
+    collections.classes
+      .filter((entity) => hasStereotype(entity, "RequestBody"))
+      .map((entity) => entity.name),
+  );
+  const responseNames = new Set(
+    collections.classes
+      .filter((entity) => hasStereotype(entity, "Response"))
+      .map((entity) => entity.name),
+  );
+
+  const paths: Record<string, OpenApiPathItem> = {};
+
+  for (const pathClass of pathClasses) {
+    const httpInfo = extractHttpDetails(pathClass.stereotypes);
+    if (!httpInfo) {
+      continue;
+    }
+
+    const methodKey = httpInfo.method.toLowerCase() as HttpMethodKey;
+    if (!SUPPORTED_HTTP_METHODS.has(methodKey)) {
+      continue;
+    }
+
+    const route = normalizeRoute(httpInfo.route);
+    const pathItem: OpenApiPathItem = paths[route] ?? {};
+    const requestRelation = collections.relations.find(
+      (relation) =>
+        relation.from === pathClass.name && requestBodyNames.has(relation.to),
+    );
+
+    const responseRelations = collections.relations.filter(
+      (relation) =>
+        relation.from === pathClass.name && responseNames.has(relation.to),
+    );
+
+    const operation: OpenApiOperation = {
+      summary: buildOperationSummary(pathClass.name, httpInfo.method),
+      tags: [deriveOperationTag(pathClass, responseRelations)],
+      responses: buildResponsesFromRelations(
+        responseRelations,
+        httpInfo.method,
+        errorSchemaRef,
+      ),
+    };
+
+    if (requestRelation) {
+      operation.requestBody = buildRequestBodyFromRelation(requestRelation);
+    }
+
+    (pathItem as any)[methodKey] = operation;
+    paths[route] = pathItem;
+  }
+
+  return paths;
+}
+
+function hasStereotype(entity: UMLClassLike, stereotype: string): boolean {
+  return (
+    entity.stereotypes?.some(
+      (entry) => entry.toLowerCase() === stereotype.toLowerCase(),
+    ) ?? false
+  );
+}
+
+function extractHttpDetails(stereotypes?: string[]) {
+  if (!stereotypes?.length) {
+    return null;
+  }
+
+  for (const entry of stereotypes) {
+    const match = entry.match(
+      /^(get|post|put|delete|patch|options|head)\s+(.+)$/i,
+    );
+    if (match) {
+      return {
+        method: match[1].toUpperCase(),
+        route: match[2].trim(),
+      };
+    }
+  }
+
+  return null;
+}
+
+function normalizeRoute(route: string): string {
+  if (!route) {
+    return "/";
+  }
+  return route.startsWith("/") ? route : `/${route}`;
+}
+
+function buildOperationSummary(name: string, method: string): string {
+  const humanized = humanizeName(name);
+  return `${method.toUpperCase()} ${humanized}`.trim();
+}
+
+function deriveOperationTag(
+  pathClass: UMLClassLike,
+  responseRelations: UMLRelation[],
+): string {
+  const responseName = responseRelations
+    .map((relation) => relation.to)
+    .find(Boolean);
+  const baseName = responseName
+    ? responseName.replace(/Response$/i, "").trim()
+    : pathClass.name;
+  return humanizeName(baseName || pathClass.name);
+}
+
+function buildRequestBodyFromRelation(
+  relation: UMLRelation,
+): OpenApiOperation["requestBody"] | undefined {
+  if (!relation.to) {
+    return undefined;
+  }
+  const cardinality = analyzeCardinality(relation.toCardinality);
+  return {
+    required: cardinality.required,
+    content: {
+      "application/json": {
+        schema: refSchema(toComponentRef(relation.to)),
+      },
+    },
+  };
+}
+
+function buildResponsesFromRelations(
+  relations: UMLRelation[],
+  method: string,
+  errorSchemaRef: string,
+): Record<string, OpenApiResponse> {
+  const responses: Record<string, OpenApiResponse> = {};
+
+  if (relations.length === 0) {
+    const status = defaultStatusForMethod(method);
+    responses[status] = {
+      description: `${status} response`,
+    };
+  } else {
+    for (const relation of relations) {
+      if (!relation.to) {
+        continue;
+      }
+      const status = extractStatusCode(relation.label, method);
+      responses[status] = {
+        description: `${status} response`,
+        content: {
+          "application/json": {
+            schema: refSchema(toComponentRef(relation.to)),
+          },
+        },
+      };
+    }
+  }
+
+  responses["default"] = buildErrorResponse("Unexpected error", errorSchemaRef);
+  return responses;
+}
+
+function extractStatusCode(label: string | undefined, method: string): string {
+  if (label) {
+    const cleaned = label.replace(/"/g, "").trim();
+    if (/^\d+$/.test(cleaned)) {
+      return cleaned;
+    }
+  }
+  return defaultStatusForMethod(method);
+}
+
+function defaultStatusForMethod(method: string): string {
+  switch (method.toUpperCase()) {
+    case "POST":
+      return "201";
+    case "DELETE":
+      return "204";
+    default:
+      return "200";
+  }
+}
+
+function humanizeName(value: string): string {
+  const withoutQuotes = value.replace(/^"+|"+$/g, "").replace(/\s+/g, " ");
+  const spaced = withoutQuotes
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ");
+  return spaced
+    .split(" ")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
 }
 
 /**
@@ -165,7 +391,7 @@ function applyRelations(
   relations: UMLRelation[],
   classSchemas: Map<string, MutableSchema>,
   inheritanceMap: Map<string, string[]>,
-  componentNames: Set<string>
+  componentNames: Set<string>,
 ) {
   for (const relation of relations) {
     handleRelation(relation, classSchemas, inheritanceMap, componentNames);
@@ -178,7 +404,7 @@ function applyRelations(
 function buildComponentSchemas(
   classSchemas: Map<string, MutableSchema>,
   inheritanceMap: Map<string, string[]>,
-  enums: UMLEnum[]
+  enums: UMLEnum[],
 ): Record<string, OpenApiSchema> {
   const schemas: Record<string, OpenApiSchema> = {};
 
@@ -210,17 +436,13 @@ function buildComponentSchemas(
 /**
  * Turns the draft structure into a plain OpenAPI object schema.
  */
-function buildSchemaObjectFromDraft(
-  draft: MutableSchema
-): OpenApiObjectSchema {
+function buildSchemaObjectFromDraft(draft: MutableSchema): OpenApiObjectSchema {
   return {
     type: "object",
     properties:
       Object.keys(draft.properties).length > 0 ? draft.properties : undefined,
     required:
-      draft.required.size > 0
-        ? Array.from(draft.required.values())
-        : undefined,
+      draft.required.size > 0 ? Array.from(draft.required.values()) : undefined,
     description: draft.description,
   };
 }
@@ -230,7 +452,7 @@ function buildSchemaObjectFromDraft(
  */
 function ensureMutableSchema(
   store: Map<string, MutableSchema>,
-  name: string
+  name: string,
 ): MutableSchema {
   if (!store.has(name)) {
     store.set(name, { properties: {}, required: new Set<string>() });
@@ -247,7 +469,7 @@ function addAttributesToDraft(
   componentNames: Set<string>,
   enums: UMLDiagram["enums"],
   interfaces: UMLDiagram["interfaces"],
-  classes: UMLDiagram["classes"]
+  classes: UMLDiagram["classes"],
 ) {
   const enumNames = new Set(enums?.map((item) => item.name) ?? []);
   const classLikeNames = new Set([
@@ -260,11 +482,11 @@ function addAttributesToDraft(
       attribute.type,
       componentNames,
       enumNames,
-      classLikeNames
+      classLikeNames,
     );
     draft.properties[attribute.name] = propertySchema;
 
-    if (attribute.access === "public") {
+    if (attribute.access === "public" && !attribute.optional) {
       draft.required.add(attribute.name);
     }
   }
@@ -277,7 +499,7 @@ function mapAttributeType(
   rawType: string | undefined,
   componentNames: Set<string>,
   enumNames: Set<string>,
-  classLikeNames: Set<string>
+  classLikeNames: Set<string>,
 ): OpenApiSchema {
   if (!rawType) {
     return { type: "string" };
@@ -289,6 +511,36 @@ function mapAttributeType(
 
   if (primitive) {
     return { ...primitive };
+  }
+
+  const arrayMatch = trimmed.match(/^(.*)\[\]$/);
+  if (arrayMatch) {
+    const innerType = arrayMatch[1].trim();
+    const items = mapAttributeType(
+      innerType,
+      componentNames,
+      enumNames,
+      classLikeNames,
+    );
+    return {
+      type: "array",
+      items,
+    } as OpenApiArraySchema;
+  }
+
+  if (trimmed.includes("->")) {
+    const [, valuePart] = trimmed.split("->");
+    if (valuePart) {
+      return {
+        type: "object",
+        additionalProperties: mapAttributeType(
+          valuePart.trim(),
+          componentNames,
+          enumNames,
+          classLikeNames,
+        ),
+      };
+    }
   }
 
   if (componentNames.has(trimmed)) {
@@ -337,7 +589,7 @@ function handleRelation(
   relation: UMLRelation,
   classSchemas: Map<string, MutableSchema>,
   inheritanceMap: Map<string, string[]>,
-  componentNames: Set<string>
+  componentNames: Set<string>,
 ) {
   if (!relation.from || !relation.to) {
     return;
@@ -431,7 +683,7 @@ function analyzeCardinality(card?: UMLCardinality) {
       }
       if (
         ["many", "multiple", "list", "collection"].some((token) =>
-          raw.includes(token)
+          raw.includes(token),
         )
       ) {
         return { isArray: true, required: false };
@@ -466,7 +718,7 @@ function toComponentRef(name: string) {
 function buildCrudPaths(
   classes: UMLClassLike[],
   schemas: Record<string, OpenApiSchema>,
-  errorSchemaRef: string
+  errorSchemaRef: string,
 ): Record<string, OpenApiPathItem> {
   const paths: Record<string, OpenApiPathItem> = {};
 
@@ -504,7 +756,7 @@ function buildCrudPaths(
  */
 function buildListOperation(
   tag: string,
-  resourceRef: string
+  resourceRef: string,
 ): OpenApiOperation {
   return {
     summary: `List ${tag}s`,
@@ -531,7 +783,7 @@ function buildListOperation(
 function buildCreateOperation(
   tag: string,
   resourceRef: string,
-  errorRef: string
+  errorRef: string,
 ): OpenApiOperation {
   return {
     summary: `Create ${tag}`,
@@ -564,7 +816,7 @@ function buildCreateOperation(
 function buildGetOperation(
   tag: string,
   resourceRef: string,
-  errorRef: string
+  errorRef: string,
 ): OpenApiOperation {
   return {
     summary: `Get ${tag}`,
@@ -590,7 +842,7 @@ function buildGetOperation(
 function buildUpdateOperation(
   tag: string,
   resourceRef: string,
-  errorRef: string
+  errorRef: string,
 ): OpenApiOperation {
   return {
     summary: `Update ${tag}`,

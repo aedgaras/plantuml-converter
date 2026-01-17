@@ -4,6 +4,7 @@ export type UMLAttribute = {
   name: string;
   type?: string;
   access: AccessModifier;
+  optional?: boolean;
 };
 
 export type UMLMethod = {
@@ -19,6 +20,7 @@ export type UMLClassLike = {
   type: UMLClassType;
   attributes: UMLAttribute[];
   methods: UMLMethod[];
+  stereotypes?: string[];
 };
 
 export type UMLEnum = {
@@ -63,6 +65,7 @@ export type UMLRelation = {
   fromCardinality?: UMLCardinality;
   toCardinality?: UMLCardinality;
   cardinality?: UMLCardinality;
+  label?: string;
 };
 
 export type UMLDiagram = {

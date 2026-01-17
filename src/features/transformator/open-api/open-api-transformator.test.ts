@@ -174,7 +174,7 @@ describe("transformToOpenApi", () => {
     });
 
     expect(new Set((schemas.Person as any).required ?? [])).toEqual(
-      new Set(["id", "name", "birthDate", "isActive", "address", "gender"])
+      new Set(["id", "name", "birthDate", "isActive", "address", "gender"]),
     );
 
     expect(schemas.Address).toEqual({
@@ -240,5 +240,45 @@ describe("transformToOpenApi", () => {
     const orderItemPath = doc.paths["/orders/{id}"] as any;
     expect(orderItemPath.put.responses["404"].content).toBeDefined();
     expect(orderItemPath.delete.responses["404"].content).toBeDefined();
+  });
+
+  it("builds HTTP operations only from explicit Path stereotypes", () => {
+    const doc = toOpenApi([
+      "class Order {",
+      "  +id: UUID",
+      "  +total: number",
+      "}",
+      "",
+      'class "CreateOrderBody" <<RequestBody>> {',
+      "}",
+      '"CreateOrderBody" --> "1" Order',
+      "",
+      'class "OrderResponse" <<Response>> {',
+      "}",
+      '"OrderResponse" --> "1" Order',
+      "",
+      'class "createOrder" <<Path>> <<POST /orders>> {',
+      "}",
+      '"createOrder" --> "1" "CreateOrderBody"',
+      '"createOrder" ..> "1" "OrderResponse" : \"201\"',
+      "",
+      'class "getOrder" <<Path>> <<GET /orders/{orderId}>> {',
+      "}",
+      '"getOrder" ..> "1" "OrderResponse" : \"200\"',
+    ]);
+
+    const createPath = doc.paths["/orders"] as any;
+    expect(createPath.get).toBeUndefined();
+    expect(createPath.post).toBeDefined();
+    expect(
+      createPath.post.requestBody.content["application/json"].schema,
+    ).toEqual({ $ref: "#/components/schemas/CreateOrderBody" });
+    expect(createPath.post.responses["201"].content).toBeDefined();
+    expect(createPath.post.responses["default"]).toBeDefined();
+
+    const detailPath = doc.paths["/orders/{orderId}"] as any;
+    expect(detailPath.get).toBeDefined();
+    expect(detailPath.post).toBeUndefined();
+    expect(detailPath.get.responses["200"].content).toBeDefined();
   });
 });

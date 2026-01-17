@@ -5,25 +5,141 @@ import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import YAML from "yaml";
 import { CodeEditor } from "../editor/code-editor";
 import { DEFAULT_PLANTUML } from "../editor/utils";
-import type {
-  OpenApiAllOfSchema,
-  OpenApiArraySchema,
-  OpenApiDocument,
-  OpenApiObjectSchema,
-  OpenApiPrimitiveSchema,
-  OpenApiReferenceSchema,
-  OpenApiSchema,
-} from "../transformator/open-api/open-api-types";
+import type { OpenApiDocument } from "../transformator/open-api/open-api-types";
 import { useTransformator } from "../transformator/use-transformator";
+import { buildOpenApiPlantUmlDiagram } from "./utils";
 
 type PlantUmlFixture = {
   id: string;
   fileName: string;
   label: string;
   content: string;
+  category: string;
 };
 
 export default function Dashboard() {
+  const {
+    diagramUrl,
+    diagramSize,
+    openApiSchema,
+    selectedFixtureId,
+    handleFixtureChange,
+    fixturesLoading,
+    handleUmlChange,
+    fixturesByCategory,
+    fixturesError,
+    plantUmlCode,
+  } = useDashboard();
+
+  return (
+    <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
+      <header className="border-b bg-white px-6 py-3 shadow-sm border-gray-200 dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+            PlantUML to OpenAPI Converter
+          </h1>
+        </div>
+      </header>
+
+      <main className="flex flex-1 flex-col overflow-hidden">
+        {/* Top section with editors */}
+        <div className="flex flex-1 flex-col md:flex-row">
+          {/* Left: PlantUML input */}
+          <div className="flex h-1/2 w-full flex-col border-r border-gray-200 dark:border-gray-700 md:h-full md:w-1/2">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <h2 className="font-medium text-gray-700 dark:text-gray-200">
+                PlantUML Input
+              </h2>
+              <div className="flex flex-col items-end gap-1">
+                <select
+                  id="fixture-select"
+                  value={selectedFixtureId}
+                  onChange={handleFixtureChange}
+                  disabled={fixturesLoading}
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                >
+                  <option value="">
+                    {fixturesLoading ? "Loading..." : "Select PlantUML fixture"}
+                  </option>
+                  {fixturesByCategory.map(({ category, fixtures }) => (
+                    <optgroup key={category} label={category}>
+                      {fixtures.map((fixture) => (
+                        <option key={fixture.id} value={fixture.id}>
+                          {fixture.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {fixturesError && (
+                  <p className="text-xs text-red-500">{fixturesError}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <CodeEditor
+                value={plantUmlCode}
+                onChange={handleUmlChange}
+                language="plantuml"
+                height="100%"
+              />
+            </div>
+          </div>
+
+          <div className="flex h-1/2 w-full flex-col border-t border-gray-200 dark:border-gray-700 md:h-full md:w-1/2 md:border-t-0">
+            <div className="flex flex-1 flex-col border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                <h2 className="font-medium text-gray-700 dark:text-gray-200">
+                  OpenAPI Schema
+                </h2>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <CodeEditor
+                  value={openApiSchema}
+                  onChange={() => {}}
+                  language="yaml"
+                  height="100%"
+                  readOnly={true}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div className="grid grid-cols-1">
+        <div className="flex flex-col">
+          <div className="flex flex-1 flex-col border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <div className="flex flex-col">
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  PlantUML Diagram
+                </span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden bg-white dark:bg-gray-900">
+              <div className="flex h-full w-full items-center justify-center overflow-auto p-4">
+                <img
+                  src={diagramUrl === "" ? "./placeholder.svg" : diagramUrl}
+                  alt="PlantUML Diagram"
+                  width={diagramSize.width || undefined}
+                  height={diagramSize.height || undefined}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    objectFit: "contain",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const useDashboard = () => {
   const [plantUmlCode, setPlantUmlCode] = useState(DEFAULT_PLANTUML);
   const [openApiSchema, setOpenApiSchema] = useState("");
   const [diagramUrl, setDiagramUrl] = useState("");
@@ -33,17 +149,49 @@ export default function Dashboard() {
     height: 0,
   });
   const [openApiDiagram, setOpenApiDiagram] = useState<OpenApiDocument | null>(
-    null
+    null,
   );
   const [fixtures, setFixtures] = useState<PlantUmlFixture[]>([]);
   const [fixturesLoading, setFixturesLoading] = useState(false);
   const [fixturesError, setFixturesError] = useState<string | null>(null);
   const [selectedFixtureId, setSelectedFixtureId] = useState("");
   const { transform } = useTransformator();
+  const fixturesByCategory = useMemo(() => {
+    const categoryOrder = ["Test cases", "API diagrams"];
+    const grouped = fixtures.reduce<Record<string, PlantUmlFixture[]>>(
+      (acc, fixture) => {
+        if (!acc[fixture.category]) {
+          acc[fixture.category] = [];
+        }
+        acc[fixture.category].push(fixture);
+        return acc;
+      },
+      {},
+    );
+
+    return Object.entries(grouped)
+      .sort(([a], [b]) => {
+        const orderA = categoryOrder.indexOf(a);
+        const orderB = categoryOrder.indexOf(b);
+        if (orderA !== orderB) {
+          return (
+            (orderA === -1 ? categoryOrder.length : orderA) -
+            (orderB === -1 ? categoryOrder.length : orderB)
+          );
+        }
+        return a.localeCompare(b);
+      })
+      .map(([category, entries]) => ({
+        category,
+        fixtures: entries.sort((left, right) =>
+          left.label.localeCompare(right.label),
+        ),
+      }));
+  }, [fixtures]);
 
   const openApiPlantUmlDefinition = useMemo(
     () => buildOpenApiPlantUmlDiagram(openApiDiagram),
-    [openApiDiagram]
+    [openApiDiagram],
   );
 
   const openApiDiagramUrl = useMemo(() => {
@@ -52,7 +200,7 @@ export default function Dashboard() {
     }
 
     return `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(
-      openApiPlantUmlDefinition
+      openApiPlantUmlDefinition,
     )}`;
   }, [openApiPlantUmlDefinition]);
 
@@ -60,12 +208,12 @@ export default function Dashboard() {
     (uml: string) => {
       const diagram = transform(uml);
       setDiagramUrl(
-        `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(uml)}`
+        `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(uml)}`,
       );
       setOpenApiSchema(YAML.stringify(diagram));
       setOpenApiDiagram(diagram);
     },
-    [transform]
+    [transform],
   );
 
   useEffect(() => {
@@ -167,296 +315,16 @@ export default function Dashboard() {
     updateOutputs(selected.content);
   };
 
-  return (
-    <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
-      <header className="border-b bg-white px-6 py-3 shadow-sm border-gray-200 dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-            PlantUML to OpenAPI Converter
-          </h1>
-        </div>
-      </header>
-
-      <main className="flex flex-1 flex-col overflow-hidden">
-        {/* Top section with editors */}
-        <div className="flex flex-1 flex-col md:flex-row">
-          {/* Left: PlantUML input */}
-          <div className="flex h-1/2 w-full flex-col border-r border-gray-200 dark:border-gray-700 md:h-full md:w-1/2">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <h2 className="font-medium text-gray-700 dark:text-gray-200">
-                PlantUML Input
-              </h2>
-              <div className="flex flex-col items-end gap-1">
-                <select
-                  id="fixture-select"
-                  value={selectedFixtureId}
-                  onChange={handleFixtureChange}
-                  disabled={fixturesLoading}
-                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-                >
-                  <option value="">
-                    {fixturesLoading ? "Loading..." : "Select test case"}
-                  </option>
-                  {fixtures.map((fixture) => (
-                    <option key={fixture.id} value={fixture.id}>
-                      {fixture.label}
-                    </option>
-                  ))}
-                </select>
-                {fixturesError && (
-                  <p className="text-xs text-red-500">{fixturesError}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <CodeEditor
-                value={plantUmlCode}
-                onChange={handleUmlChange}
-                language="plantuml"
-                height="100%"
-              />
-            </div>
-          </div>
-
-          <div className="flex h-1/2 w-full flex-col border-t border-gray-200 dark:border-gray-700 md:h-full md:w-1/2 md:border-t-0">
-            <div className="flex flex-1 flex-col border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <h2 className="font-medium text-gray-700 dark:text-gray-200">
-                  OpenAPI Schema
-                </h2>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <CodeEditor
-                  value={openApiSchema}
-                  onChange={() => {}}
-                  language="yaml"
-                  height="100%"
-                  readOnly={true}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      <div className="grid grid-cols-2">
-        <div className="flex flex-col">
-          <div className="flex flex-1 flex-col border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  PlantUML Diagram
-                </span>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden bg-white dark:bg-gray-900">
-              <div className="flex h-full w-full items-center justify-center overflow-auto p-4">
-                <img
-                  src={diagramUrl === "" ? "./placeholder.svg" : diagramUrl}
-                  alt="PlantUML Diagram"
-                  width={diagramSize.width || undefined}
-                  height={diagramSize.height || undefined}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "100%",
-                    objectFit: "contain",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col">
-          <div className="flex flex-1 flex-col border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  OpenAPI Diagram
-                </span>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden bg-white dark:bg-gray-900">
-              <div className="flex h-full w-full items-center justify-center overflow-auto p-4">
-                <img
-                  src={
-                    openApiDiagramUrl === ""
-                      ? "./placeholder.svg"
-                      : openApiDiagramUrl
-                  }
-                  alt="OpenAPI PlantUML Diagram"
-                  width={openApiDiagramSize.width || undefined}
-                  height={openApiDiagramSize.height || undefined}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "100%",
-                    objectFit: "contain",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function buildOpenApiPlantUmlDiagram(
-  document: OpenApiDocument | null
-): string {
-  const schemas = document?.components?.schemas;
-  if (!schemas || Object.keys(schemas).length === 0) {
-    return "";
-  }
-
-  const lines: string[] = [
-    "@startuml",
-    "skinparam classAttributeIconSize 0",
-  ];
-  const relations: string[] = [];
-
-  for (const [name, schema] of Object.entries(schemas)) {
-    lines.push(...buildPlantUmlClassBlock(name, schema));
-    relations.push(...collectPlantUmlRelations(name, schema));
-  }
-
-  lines.push(...relations, "@enduml");
-  return lines.join("\n");
-}
-
-function buildPlantUmlClassBlock(name: string, schema: OpenApiSchema): string[] {
-  if (isObjectSchema(schema) && schema.properties) {
-    const block: string[] = [`class ${name} {`];
-    for (const [propName, propSchema] of Object.entries(schema.properties)) {
-      block.push(`  ${propName}: ${describeSchema(propSchema)}`);
-    }
-    block.push("}");
-    return block;
-  }
-
-  if (isPrimitiveSchema(schema)) {
-    return [
-      `class ${name} {`,
-      `  ${schema.type}${schema.format ? ` (${schema.format})` : ""}`,
-      "}",
-    ];
-  }
-
-  if (isArraySchema(schema)) {
-    return [`class ${name} {`, `  Array<${describeSchema(schema.items)}>`, "}"];
-  }
-
-  if (isReferenceSchema(schema)) {
-    return [`class ${name} {`, `  ref ${extractRefName(schema.$ref)}`, "}"];
-  }
-
-  return [`class ${name}`];
-}
-
-function collectPlantUmlRelations(
-  parent: string,
-  schema: OpenApiSchema
-): string[] {
-  const relations: string[] = [];
-
-  if (isObjectSchema(schema) && schema.properties) {
-    for (const [propName, propSchema] of Object.entries(schema.properties)) {
-      const target = resolveReferenceTarget(propSchema);
-      if (target) {
-        relations.push(`${parent} --> ${target} : ${propName}`);
-      }
-    }
-  }
-
-  if (isArraySchema(schema)) {
-    const target = resolveReferenceTarget(schema.items);
-    if (target) {
-      relations.push(`${parent} --> ${target} : items`);
-    }
-  }
-
-  if (isAllOfSchema(schema)) {
-    for (const item of schema.allOf) {
-      const target = resolveReferenceTarget(item);
-      if (target) {
-        relations.push(`${target} <|-- ${parent}`);
-      }
-    }
-  }
-
-  return relations;
-}
-
-function describeSchema(schema: OpenApiSchema): string {
-  if (isReferenceSchema(schema)) {
-    return extractRefName(schema.$ref);
-  }
-  if (isPrimitiveSchema(schema)) {
-    return schema.format ? `${schema.type} (${schema.format})` : schema.type;
-  }
-  if (isArraySchema(schema)) {
-    return `List<${describeSchema(schema.items)}>`;
-  }
-  if (isObjectSchema(schema)) {
-    const propertyCount = schema.properties
-      ? Object.keys(schema.properties).length
-      : 0;
-    return `Object(${propertyCount})`;
-  }
-  if (isAllOfSchema(schema)) {
-    return schema.allOf.map(describeSchema).join(" & ");
-  }
-  return "Schema";
-}
-
-function resolveReferenceTarget(schema: OpenApiSchema): string | undefined {
-  if (isReferenceSchema(schema)) {
-    return extractRefName(schema.$ref);
-  }
-  if (isArraySchema(schema)) {
-    return resolveReferenceTarget(schema.items);
-  }
-  if (isAllOfSchema(schema)) {
-    for (const item of schema.allOf) {
-      const ref = resolveReferenceTarget(item);
-      if (ref) {
-        return ref;
-      }
-    }
-  }
-  return undefined;
-}
-
-function extractRefName(ref: string): string {
-  const segments = ref.split("/");
-  return segments[segments.length - 1] || ref;
-}
-
-function isReferenceSchema(
-  schema: OpenApiSchema
-): schema is OpenApiReferenceSchema {
-  return Boolean((schema as OpenApiReferenceSchema).$ref);
-}
-
-function isArraySchema(schema: OpenApiSchema): schema is OpenApiArraySchema {
-  return (schema as OpenApiArraySchema).type === "array";
-}
-
-function isObjectSchema(schema: OpenApiSchema): schema is OpenApiObjectSchema {
-  return (schema as OpenApiObjectSchema).type === "object";
-}
-
-function isPrimitiveSchema(
-  schema: OpenApiSchema
-): schema is OpenApiPrimitiveSchema {
-  return (
-    "type" in schema &&
-    typeof schema.type === "string" &&
-    schema.type !== "array" &&
-    schema.type !== "object"
-  );
-}
-
-function isAllOfSchema(schema: OpenApiSchema): schema is OpenApiAllOfSchema {
-  return Array.isArray((schema as OpenApiAllOfSchema).allOf);
-}
+  return {
+    diagramUrl,
+    diagramSize,
+    openApiSchema,
+    selectedFixtureId,
+    handleFixtureChange,
+    fixturesLoading,
+    handleUmlChange,
+    fixturesByCategory,
+    fixturesError,
+    plantUmlCode,
+  };
+};

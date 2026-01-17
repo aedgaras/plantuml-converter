@@ -20,12 +20,12 @@ paths:
       tags:
         - crx
       responses:
-        '200':
+        "200":
           description: Install status snapshot.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InstallStatus'
+                $ref: "#/components/schemas/InstallStatus"
         default:
           description: Unexpected error payload.
           content:
@@ -39,12 +39,12 @@ paths:
       tags:
         - security
       responses:
-        '200':
+        "200":
           description: Truststore metadata snapshot.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TruststoreInfo'
+                $ref: "#/components/schemas/TruststoreInfo"
         default:
           description: Unexpected error payload.
           content:
@@ -65,12 +65,12 @@ paths:
       tags:
         - console
       responses:
-        '200':
+        "200":
           description: Bundle metadata.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BundleInfo'
+                $ref: "#/components/schemas/BundleInfo"
         default:
           description: Unexpected error payload.
           content:
@@ -84,12 +84,12 @@ paths:
       tags:
         - console
       responses:
-        '200':
+        "200":
           description: Current SAML configuration.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SamlConfigurationInfo'
+                $ref: "#/components/schemas/SamlConfigurationInfo"
         default:
           description: Unexpected error payload.
           content:
@@ -102,14 +102,14 @@ paths:
       tags:
         - console
       requestBody:
-        $ref: '#/components/requestBodies/SamlConfigurationSettingsBody'
+        $ref: "#/components/requestBodies/SamlConfigurationSettingsBody"
       responses:
-        '200':
+        "200":
           description: Updated configuration snapshot.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SamlConfigurationInfo'
+                $ref: "#/components/schemas/SamlConfigurationInfo"
         default:
           description: Validation error payload.
           content:
@@ -130,12 +130,12 @@ paths:
       tags:
         - security
       responses:
-        '200':
+        "200":
           description: Authorizable keystore metadata.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/KeystoreInfo'
+                $ref: "#/components/schemas/KeystoreInfo"
         default:
           description: Unexpected error payload.
           content:
@@ -148,14 +148,14 @@ paths:
       tags:
         - security
       requestBody:
-        $ref: '#/components/requestBodies/KeystoreUpload'
+        $ref: "#/components/requestBodies/KeystoreUpload"
       responses:
-        '200':
+        "200":
           description: Updated keystore metadata.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/KeystoreInfo'
+                $ref: "#/components/schemas/KeystoreInfo"
         default:
           description: Validation error payload.
           content:
@@ -176,7 +176,7 @@ paths:
       tags:
         - security
       responses:
-        '200':
+        "200":
           description: Binary PKCS#12 keystore.
           content:
             application/octet-stream:
@@ -196,7 +196,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/SamlConfigurationSettings'
+            $ref: "#/components/schemas/SamlConfigurationSettings"
     KeystoreUpload:
       required: true
       content:
@@ -247,7 +247,7 @@ components:
         aliases:
           type: array
           items:
-            $ref: '#/components/schemas/TruststoreItems'
+            $ref: "#/components/schemas/TruststoreItems"
     TruststoreItems:
       type: object
       properties:
@@ -275,7 +275,7 @@ components:
         bundles:
           type: array
           items:
-            $ref: '#/components/schemas/BundleData'
+            $ref: "#/components/schemas/BundleData"
     BundleData:
       type: object
       properties:
@@ -296,7 +296,7 @@ components:
         props:
           type: array
           items:
-            $ref: '#/components/schemas/BundleDataProp'
+            $ref: "#/components/schemas/BundleDataProp"
     BundleDataProp:
       type: object
       properties:
@@ -312,7 +312,7 @@ components:
         aliases:
           type: array
           items:
-            $ref: '#/components/schemas/KeystoreItems'
+            $ref: "#/components/schemas/KeystoreItems"
     KeystoreItems:
       type: object
       properties:
@@ -327,7 +327,7 @@ components:
         chain:
           type: array
           items:
-            $ref: '#/components/schemas/KeystoreChainItems'
+            $ref: "#/components/schemas/KeystoreChainItems"
     KeystoreChainItems:
       type: object
       properties:
@@ -353,7 +353,7 @@ components:
         enabled:
           type: boolean
         properties:
-          $ref: '#/components/schemas/SamlConfigurationProperties'
+          $ref: "#/components/schemas/SamlConfigurationProperties"
     SamlConfigurationProperties:
       type: object
       properties:

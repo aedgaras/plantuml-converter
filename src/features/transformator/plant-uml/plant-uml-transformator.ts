@@ -44,22 +44,33 @@ function normalizeUmlText(umlText: string): string {
  * Extracts class and interface definitions from the UML source.
  */
 function parseClassLikeDeclarations(
-  umlText: string
+  umlText: string,
 ): ClassAndInterfaceCollection {
-  const classLikeRegex = /(class|interface)\s+(\w+)\s*\{([^}]*)\}/g;
   const classes: UMLClassLike[] = [];
   const interfaces: UMLClassLike[] = [];
-
+  const classLikePattern = /(class|interface)\b/g;
   let match: RegExpExecArray | null;
-  while ((match = classLikeRegex.exec(umlText)) !== null) {
-    const [, rawType, name, body] = match;
-    const entity = buildClassLikeEntity(rawType as UMLClassType, name, body);
 
+  while ((match = classLikePattern.exec(umlText)) !== null) {
+    const rawType = match[1] as UMLClassType;
+    const block = extractNamedBlock(umlText, classLikePattern.lastIndex);
+    if (!block) {
+      continue;
+    }
+
+    const entity = buildClassLikeEntity(
+      rawType,
+      block.name,
+      block.body,
+      block.stereotypes,
+    );
     if (rawType === "interface") {
       interfaces.push(entity);
     } else {
       classes.push(entity);
     }
+
+    classLikePattern.lastIndex = block.endIndex + 1;
   }
 
   return { classes, interfaces };
@@ -71,10 +82,18 @@ function parseClassLikeDeclarations(
 function buildClassLikeEntity(
   type: UMLClassType,
   name: string,
-  body: string
+  body: string,
+  stereotypes: string[],
 ): UMLClassLike {
+  const normalizedName = normalizeIdentifier(name);
   const { attributes, methods } = parseClassMembers(body);
-  return { name, type, attributes, methods };
+  return {
+    name: normalizedName,
+    type,
+    attributes,
+    methods,
+    stereotypes,
+  };
 }
 
 /**
@@ -116,16 +135,36 @@ type ParsedMember =
  * Parses a single class member, distinguishing between attributes and methods.
  */
 function parseClassMember(line: string): ParsedMember | undefined {
-  const accessSymbol = line.charAt(0);
-  const access = parseAccessModifier(accessSymbol);
-  const clean = line.replace(/^(\+|-|#|~)/, "").trim();
+  let clean = line.trim();
+  if (!clean) {
+    return undefined;
+  }
+
+  const optional = /\{O\}\s*$/i.test(clean);
+  if (optional) {
+    clean = clean.replace(/\{O\}\s*$/i, "").trim();
+  }
+
+  clean = stripMemberDecorators(clean);
+  if (!clean) {
+    return undefined;
+  }
+
+  let access: AccessModifier = "public";
+  const accessSymbol = clean.charAt(0);
+  if (/^[+\-#~]$/.test(accessSymbol)) {
+    access = parseAccessModifier(accessSymbol);
+    clean = clean.slice(1).trim();
+  }
 
   if (!clean) {
     return undefined;
   }
 
   if (clean.includes("(")) {
-    const methodMatch = /^(\w+)\s*\(.*\)\s*:?(\s*\w+)?/.exec(clean);
+    const methodMatch = /^([\w.]+)\s*\(.*\)\s*(?::\s*([\w<>[\]\s.]+))?/.exec(
+      clean,
+    );
     if (!methodMatch) {
       return undefined;
     }
@@ -137,16 +176,44 @@ function parseClassMember(line: string): ParsedMember | undefined {
     };
   }
 
-  const attrMatch = /^(\w+)\s*:\s*(\w+)?/.exec(clean);
-  if (!attrMatch) {
+  const colonIndex = clean.indexOf(":");
+  if (colonIndex === -1) {
     return undefined;
   }
 
-  const [, name, type] = attrMatch;
+  const name = clean.slice(0, colonIndex).trim();
+  const rawType = clean.slice(colonIndex + 1).trim();
+  const type = stripMemberDecorators(rawType);
+  if (!name) {
+    return undefined;
+  }
+
+  const attribute: UMLAttribute = {
+    name,
+    type: type || undefined,
+    access,
+  };
+
+  if (optional) {
+    attribute.optional = true;
+  }
+
   return {
     kind: "attribute",
-    value: { name, type, access },
+    value: attribute,
   };
+}
+
+function stripMemberDecorators(value: string): string {
+  let result = value.trim();
+  while (result.startsWith("{")) {
+    const end = result.indexOf("}");
+    if (end === -1) {
+      break;
+    }
+    result = result.slice(end + 1).trim();
+  }
+  return result;
 }
 
 /**
@@ -154,16 +221,21 @@ function parseClassMember(line: string): ParsedMember | undefined {
  */
 function parseEnumDeclarations(umlText: string): UMLEnum[] {
   const enums: UMLEnum[] = [];
-  const enumRegex = /enum\s+(\w+)\s*\{([^}]*)\}/g;
-
+  const enumPattern = /enum\b/g;
   let match: RegExpExecArray | null;
-  while ((match = enumRegex.exec(umlText)) !== null) {
-    const [, name, body] = match;
-    const values = body
+
+  while ((match = enumPattern.exec(umlText)) !== null) {
+    const block = extractNamedBlock(umlText, enumPattern.lastIndex);
+    if (!block) {
+      continue;
+    }
+
+    const values = block.body
       .split("\n")
       .map((value) => value.trim())
       .filter((value) => value.length > 0);
-    enums.push({ name, values });
+    enums.push({ name: block.name, values });
+    enumPattern.lastIndex = block.endIndex + 1;
   }
 
   return enums;
@@ -207,8 +279,10 @@ function parseRelationLine(line: string): UMLRelation | undefined {
     return undefined;
   }
 
+  let relationLabel: string | undefined;
   const colonIndex = rightRaw.indexOf(":");
   if (colonIndex !== -1) {
+    relationLabel = cleanRelationLabel(rightRaw.slice(colonIndex + 1));
     rightRaw = rightRaw.slice(0, colonIndex).trim();
   }
 
@@ -228,6 +302,7 @@ function parseRelationLine(line: string): UMLRelation | undefined {
     fromCardinality,
     toCardinality,
     cardinality: toCardinality,
+    label: relationLabel,
   };
 }
 
@@ -235,7 +310,7 @@ function parseRelationLine(line: string): UMLRelation | undefined {
  * Finds the first relation symbol in a line, ignoring quoted text.
  */
 function findRelationSymbol(
-  line: string
+  line: string,
 ): { symbol: string; index: number } | undefined {
   let insideQuotes = false;
 
@@ -257,7 +332,7 @@ function findRelationSymbol(
           symbol === ".." &&
           isCardinalityDot(
             line.charAt(index - 1),
-            line.charAt(index + symbol.length)
+            line.charAt(index + symbol.length),
           )
         ) {
           continue;
@@ -280,18 +355,39 @@ function isCardinalityDot(prev: string, next: string) {
   return prevIsCardinality && nextIsCardinality;
 }
 
+function isCardinalityValue(token: string): boolean {
+  if (!token) {
+    return false;
+  }
+
+  if (token === "*") {
+    return true;
+  }
+
+  if (/^\d+$/.test(token)) {
+    return true;
+  }
+
+  if (token.toLowerCase() === "many") {
+    return true;
+  }
+
+  return /^(\d+|\*)\.\.(\d+|\*)$/.test(token);
+}
+
 /**
  * Parses the endpoints of a relation and extracts cardinality notes.
  */
 function parseRelationEndpoint(
-  segment: string
+  segment: string,
 ): { name: string; cardinalityRaw?: string } | undefined {
-  const tokens = segment
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 0);
+  const tokens =
+    segment
+      .match(/"[^"]+"|\S+/g)
+      ?.map((token) => token.trim())
+      .filter((token) => token.length > 0) ?? [];
 
-  if (tokens.length === 0) {
+  if (!tokens.length) {
     return undefined;
   }
 
@@ -299,30 +395,28 @@ function parseRelationEndpoint(
   let cardinality: string | undefined;
 
   for (const token of tokens) {
-    const quoted = token.match(/^"(.*)"$/);
-    if (quoted) {
-      cardinality = quoted[1].trim();
+    const value =
+      token.startsWith('"') && token.endsWith('"')
+        ? token.slice(1, -1).trim()
+        : token;
+
+    if (isCardinalityValue(value)) {
+      if (!cardinality) {
+        cardinality = value;
+      }
       continue;
     }
 
-    if (/^[0-9.*]+$/.test(token) && /[0-9]/.test(token)) {
-      cardinality = token;
-      continue;
+    if (!name) {
+      name = value;
     }
-
-    if (token === "*") {
-      cardinality = token;
-      continue;
-    }
-
-    name = token;
   }
 
   if (!name) {
     return undefined;
   }
 
-  return { name, cardinalityRaw: cardinality };
+  return { name: normalizeIdentifier(name), cardinalityRaw: cardinality };
 }
 
 /**
@@ -391,4 +485,232 @@ function parseCardinality(raw?: string): UMLCardinality | undefined {
   }
 
   return { type: "custom", raw: value, label: value };
+}
+
+type NamedBlock = {
+  name: string;
+  body: string;
+  endIndex: number;
+  stereotypes: string[];
+};
+
+function extractNamedBlock(
+  text: string,
+  startIndex: number,
+): NamedBlock | null {
+  const { name, index } = readEntityName(text, startIndex);
+  if (!name) {
+    return null;
+  }
+
+  const { stereotypes, index: afterStereotypes } = readStereotypes(text, index);
+  const openIndex = findNextBodyStart(text, afterStereotypes);
+  if (openIndex === -1) {
+    return null;
+  }
+
+  const closeIndex = findMatchingBraceIndex(text, openIndex);
+  if (closeIndex === -1) {
+    return null;
+  }
+
+  return {
+    name: normalizeIdentifier(name),
+    body: text.slice(openIndex + 1, closeIndex),
+    endIndex: closeIndex,
+    stereotypes,
+  };
+}
+
+function readEntityName(
+  text: string,
+  startIndex: number,
+): { name?: string; index: number } {
+  let index = skipWhitespace(text, startIndex);
+  if (index >= text.length) {
+    return { index };
+  }
+
+  if (text[index] === '"') {
+    const closing = findClosingQuote(text, index + 1);
+    if (closing === -1) {
+      return { index: text.length };
+    }
+    return { name: text.slice(index + 1, closing), index: closing + 1 };
+  }
+
+  const nameStart = index;
+  while (index < text.length && !/\s|\{|\(|<|\r|\n/.test(text[index])) {
+    index++;
+  }
+
+  const rawName = text.slice(nameStart, index).trim();
+  return { name: rawName, index };
+}
+
+function readStereotypes(
+  text: string,
+  startIndex: number,
+): { stereotypes: string[]; index: number } {
+  const stereotypes: string[] = [];
+  let index = skipWhitespace(text, startIndex);
+
+  while (text[index] === "<" && text[index + 1] === "<") {
+    const closing = text.indexOf(">>", index + 2);
+    if (closing === -1) {
+      break;
+    }
+    const value = text.slice(index + 2, closing).trim();
+    if (value) {
+      stereotypes.push(value);
+    }
+    index = closing + 2;
+    index = skipWhitespace(text, index);
+  }
+
+  return { stereotypes, index };
+}
+
+function skipWhitespace(text: string, startIndex: number): number {
+  let index = startIndex;
+  while (index < text.length && /\s/.test(text[index])) {
+    index++;
+  }
+  return index;
+}
+
+function findClosingQuote(text: string, startIndex: number): number {
+  for (let index = startIndex; index < text.length; index++) {
+    if (text[index] === '"') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function findNextBodyStart(text: string, startIndex: number): number {
+  let index = startIndex;
+  let insideQuotes = false;
+  let stereotypeDepth = 0;
+
+  while (index < text.length) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (!insideQuotes && char === "<" && next === "<") {
+      stereotypeDepth++;
+      index += 2;
+      continue;
+    }
+
+    if (stereotypeDepth > 0) {
+      if (char === ">" && next === ">") {
+        stereotypeDepth--;
+        index += 2;
+        continue;
+      }
+      index++;
+      continue;
+    }
+
+    if (char === '"') {
+      insideQuotes = !insideQuotes;
+      index++;
+      continue;
+    }
+
+    if (!insideQuotes && char === "{") {
+      return index;
+    }
+
+    index++;
+  }
+
+  return -1;
+}
+
+function findMatchingBraceIndex(text: string, openIndex: number): number {
+  let depth = 0;
+  let insideQuotes = false;
+  let stereotypeDepth = 0;
+
+  for (let index = openIndex; index < text.length; index++) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (!insideQuotes && char === "<" && next === "<") {
+      stereotypeDepth++;
+      index++;
+      continue;
+    }
+
+    if (stereotypeDepth > 0) {
+      if (char === ">" && next === ">") {
+        stereotypeDepth--;
+        index++;
+        continue;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      insideQuotes = !insideQuotes;
+      continue;
+    }
+
+    if (insideQuotes) {
+      continue;
+    }
+
+    if (char === "{") {
+      depth++;
+      continue;
+    }
+
+    if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function cleanRelationLabel(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.replace(/^:+/, "").trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.replace(/^"+|"+$/g, "").trim();
+}
+
+function normalizeIdentifier(name: string): string {
+  const trimmed = name.trim().replace(/^"+|"+$/g, "");
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const tokens = trimmed.split(/[^A-Za-z0-9]+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return trimmed.replace(/\s+/g, "");
+  }
+
+  const [first, ...rest] = tokens;
+  return [first, ...rest.map(capitalizeToken)].join("");
+}
+
+function capitalizeToken(value: string): string {
+  if (!value) {
+    return value;
+  }
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

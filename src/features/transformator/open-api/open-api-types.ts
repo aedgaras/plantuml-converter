@@ -63,6 +63,9 @@ export type OpenApiPathItem = {
   post?: OpenApiOperation;
   put?: OpenApiOperation;
   delete?: OpenApiOperation;
+  patch?: OpenApiOperation;
+  head?: OpenApiOperation;
+  options?: OpenApiOperation;
 };
 
 export type OpenApiOperation = {

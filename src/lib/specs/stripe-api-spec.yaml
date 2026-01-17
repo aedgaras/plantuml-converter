@@ -18,52 +18,52 @@ paths:
       tags:
         - PaymentIntents
       requestBody:
-        $ref: '#/components/requestBodies/PaymentIntentCreateRequest'
+        $ref: "#/components/requestBodies/PaymentIntentCreateRequest"
       responses:
-        '201':
-          $ref: '#/components/responses/PaymentIntentResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
+        "201":
+          $ref: "#/components/responses/PaymentIntentResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
   /v1/payment_intents/{intent}:
     parameters:
-      - $ref: '#/components/parameters/PaymentIntentId'
+      - $ref: "#/components/parameters/PaymentIntentId"
     get:
       summary: Retrieve the latest state of a PaymentIntent.
       operationId: getPaymentIntent
       tags:
         - PaymentIntents
       responses:
-        '200':
-          $ref: '#/components/responses/PaymentIntentResponse'
-        '404':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/PaymentIntentResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
     patch:
       summary: Update mutable properties of a PaymentIntent.
       operationId: updatePaymentIntent
       tags:
         - PaymentIntents
       requestBody:
-        $ref: '#/components/requestBodies/PaymentIntentUpdateRequest'
+        $ref: "#/components/requestBodies/PaymentIntentUpdateRequest"
       responses:
-        '200':
-          $ref: '#/components/responses/PaymentIntentResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/PaymentIntentResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
   /v1/payment_intents/{intent}/confirm:
     parameters:
-      - $ref: '#/components/parameters/PaymentIntentId'
+      - $ref: "#/components/parameters/PaymentIntentId"
     post:
       summary: Confirm the intent by attaching a payment method and finalizing the charge.
       operationId: confirmPaymentIntent
       tags:
         - PaymentIntents
       requestBody:
-        $ref: '#/components/requestBodies/PaymentIntentConfirmRequest'
+        $ref: "#/components/requestBodies/PaymentIntentConfirmRequest"
       responses:
-        '200':
-          $ref: '#/components/responses/PaymentIntentResponse'
-        '402':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/PaymentIntentResponse"
+        "402":
+          $ref: "#/components/responses/ErrorResponse"
   /v1/customers:
     post:
       summary: Create a customer profile with optional default payment method.
@@ -71,50 +71,50 @@ paths:
       tags:
         - Customers
       requestBody:
-        $ref: '#/components/requestBodies/CustomerCreateRequest'
+        $ref: "#/components/requestBodies/CustomerCreateRequest"
       responses:
-        '201':
-          $ref: '#/components/responses/CustomerResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
+        "201":
+          $ref: "#/components/responses/CustomerResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
   /v1/customers/{customer}:
     parameters:
-      - $ref: '#/components/parameters/CustomerId'
+      - $ref: "#/components/parameters/CustomerId"
     get:
       summary: Retrieve a customer profile.
       operationId: getCustomer
       tags:
         - Customers
       responses:
-        '200':
-          $ref: '#/components/responses/CustomerResponse'
-        '404':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/CustomerResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
     patch:
       summary: Update customer contact details or default payment method.
       operationId: updateCustomer
       tags:
         - Customers
       requestBody:
-        $ref: '#/components/requestBodies/CustomerUpdateRequest'
+        $ref: "#/components/requestBodies/CustomerUpdateRequest"
       responses:
-        '200':
-          $ref: '#/components/responses/CustomerResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/CustomerResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
   /v1/charges/{charge}:
     parameters:
-      - $ref: '#/components/parameters/ChargeId'
+      - $ref: "#/components/parameters/ChargeId"
     get:
       summary: Retrieve a charge created by a confirmed PaymentIntent.
       operationId: getCharge
       tags:
         - Charges
       responses:
-        '200':
-          $ref: '#/components/responses/ChargeResponse'
-        '404':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/ChargeResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
 components:
   securitySchemes:
     bearerAuth:
@@ -149,56 +149,56 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PaymentIntentCreate'
+            $ref: "#/components/schemas/PaymentIntentCreate"
     PaymentIntentUpdateRequest:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PaymentIntentUpdate'
+            $ref: "#/components/schemas/PaymentIntentUpdate"
     PaymentIntentConfirmRequest:
       required: false
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PaymentIntentConfirm'
+            $ref: "#/components/schemas/PaymentIntentConfirm"
     CustomerCreateRequest:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/CustomerCreate'
+            $ref: "#/components/schemas/CustomerCreate"
     CustomerUpdateRequest:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/CustomerUpdate'
+            $ref: "#/components/schemas/CustomerUpdate"
   responses:
     PaymentIntentResponse:
       description: PaymentIntent payload.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PaymentIntent'
+            $ref: "#/components/schemas/PaymentIntent"
     CustomerResponse:
       description: Customer payload.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Customer'
+            $ref: "#/components/schemas/Customer"
     ChargeResponse:
       description: Charge payload.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Charge'
+            $ref: "#/components/schemas/Charge"
     ErrorResponse:
       description: Stripe error payload.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
   schemas:
     PaymentIntent:
       type: object
@@ -218,7 +218,15 @@ components:
           description: ISO currency code.
         status:
           type: string
-          enum: [requires_payment_method, requires_confirmation, requires_action, processing, succeeded, canceled]
+          enum:
+            [
+              requires_payment_method,
+              requires_confirmation,
+              requires_action,
+              processing,
+              succeeded,
+              canceled,
+            ]
         capture_method:
           type: string
           enum: [automatic, manual]
@@ -229,9 +237,9 @@ components:
           type: string
           description: Optional customer this intent belongs to.
         payment_method:
-          $ref: '#/components/schemas/PaymentMethod'
+          $ref: "#/components/schemas/PaymentMethod"
         latest_charge:
-          $ref: '#/components/schemas/Charge'
+          $ref: "#/components/schemas/Charge"
         description:
           type: string
         metadata:
@@ -289,13 +297,13 @@ components:
         name:
           type: string
         address:
-          $ref: '#/components/schemas/Address'
+          $ref: "#/components/schemas/Address"
         phone:
           type: string
         default_payment_method:
-          $ref: '#/components/schemas/PaymentMethod'
+          $ref: "#/components/schemas/PaymentMethod"
         shipping:
-          $ref: '#/components/schemas/ShippingDetails'
+          $ref: "#/components/schemas/ShippingDetails"
         metadata:
           type: object
           additionalProperties:
@@ -308,7 +316,7 @@ components:
         name:
           type: string
         address:
-          $ref: '#/components/schemas/Address'
+          $ref: "#/components/schemas/Address"
         payment_method:
           type: string
         phone:
@@ -321,7 +329,7 @@ components:
         name:
           type: string
         address:
-          $ref: '#/components/schemas/Address'
+          $ref: "#/components/schemas/Address"
         payment_method:
           type: string
         phone:
@@ -348,7 +356,7 @@ components:
           type: string
           enum: [pending, succeeded, failed, refunded]
         payment_method_details:
-          $ref: '#/components/schemas/PaymentMethodDetails'
+          $ref: "#/components/schemas/PaymentMethodDetails"
         paid:
           type: boolean
         customer:
@@ -368,20 +376,20 @@ components:
           type: string
           enum: [card, sepa_debit]
         billing_details:
-          $ref: '#/components/schemas/BillingDetails'
+          $ref: "#/components/schemas/BillingDetails"
         card:
-          $ref: '#/components/schemas/CardDetails'
+          $ref: "#/components/schemas/CardDetails"
         sepa_debit:
-          $ref: '#/components/schemas/SepaDebitDetails'
+          $ref: "#/components/schemas/SepaDebitDetails"
     PaymentMethodDetails:
       type: object
       properties:
         type:
           type: string
         card:
-          $ref: '#/components/schemas/CardDetails'
+          $ref: "#/components/schemas/CardDetails"
         sepa_debit:
-          $ref: '#/components/schemas/SepaDebitDetails'
+          $ref: "#/components/schemas/SepaDebitDetails"
     BillingDetails:
       type: object
       properties:
@@ -392,7 +400,7 @@ components:
         phone:
           type: string
         address:
-          $ref: '#/components/schemas/Address'
+          $ref: "#/components/schemas/Address"
     CardDetails:
       type: object
       properties:
@@ -429,7 +437,7 @@ components:
         name:
           type: string
         address:
-          $ref: '#/components/schemas/Address'
+          $ref: "#/components/schemas/Address"
         phone:
           type: string
     Address:

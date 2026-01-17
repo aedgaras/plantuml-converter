@@ -9,7 +9,7 @@ import type { UMLCardinality, UMLDiagram } from "./plant-uml-types";
 
 const parseUml = (lines: string[]) =>
   JSON.parse(
-    JSON.stringify(transformPlantUML(lines.join("\n")), null, 2)
+    JSON.stringify(transformPlantUML(lines.join("\n")), null, 2),
   ) as UMLDiagram;
 
 const getClass = (diagram: UMLDiagram, name: string) =>
@@ -26,7 +26,7 @@ const getRelation = (diagram: UMLDiagram, from: string, to: string) =>
 
 const expectCardinality = (
   cardinality: UMLCardinality | undefined,
-  expected: Record<string, unknown>
+  expected: Record<string, unknown>,
 ) => {
   expect(cardinality).toMatchObject(expected);
 };
@@ -177,6 +177,58 @@ describe("transformator", () => {
       expect(person?.attributes).toEqual([
         { name: "metadata", type: "String", access: "package" },
       ]);
+    });
+  });
+
+  describe("complex fixtures support", () => {
+    it("parses quoted class names with decorators and optional markers", () => {
+      const diagram = parseUml([
+        'class "PaymentIntent" <<RequestBody>> {',
+        "  {field} id : string",
+        "  {field} metadata : string -> string {O}",
+        "}",
+      ]);
+
+      const paymentIntent = getClass(diagram, "PaymentIntent");
+      expect(paymentIntent).toBeTruthy();
+      expect(paymentIntent?.attributes).toEqual([
+        { name: "id", type: "string", access: "public" },
+        {
+          name: "metadata",
+          type: "string -> string",
+          access: "public",
+          optional: true,
+        },
+      ]);
+    });
+
+    it("normalizes class names that include spaces or punctuation", () => {
+      const diagram = parseUml([
+        'class "getSamlConfiguration default" <<Response>> {}',
+        'class "getAuthorizableKeystoreFile 200 application/octet-stream" <<Response>> {}',
+      ]);
+
+      expect(getClass(diagram, "getSamlConfigurationDefault")).toBeTruthy();
+      expect(
+        getClass(
+          diagram,
+          "getAuthorizableKeystoreFile200ApplicationOctetStream",
+        ),
+      ).toBeTruthy();
+    });
+
+    it("parses relations that use quoted names and cardinalities", () => {
+      const diagram = parseUml([
+        'class "PaymentIntent" {}',
+        'class "PaymentMethod" {}',
+        '"PaymentIntent" --> "0..1" "PaymentMethod" : "default_payment_method"',
+      ]);
+
+      const relation = getRelation(diagram, "PaymentIntent", "PaymentMethod");
+      expect(relation).toMatchObject({
+        type: "association",
+        toCardinality: { type: "range", min: 0, max: 1 },
+      });
     });
   });
 

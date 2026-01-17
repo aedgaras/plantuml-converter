@@ -18,154 +18,154 @@ paths:
       tags:
         - Repositories
       requestBody:
-        $ref: '#/components/requestBodies/RepositoryCreateBody'
+        $ref: "#/components/requestBodies/RepositoryCreateBody"
       responses:
-        '201':
-          $ref: '#/components/responses/RepositoryResponse'
-        '422':
-          $ref: '#/components/responses/ErrorResponse'
+        "201":
+          $ref: "#/components/responses/RepositoryResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
   /repos/{owner}/{repo}:
     parameters:
-      - $ref: '#/components/parameters/OwnerParam'
-      - $ref: '#/components/parameters/RepoParam'
+      - $ref: "#/components/parameters/OwnerParam"
+      - $ref: "#/components/parameters/RepoParam"
     get:
       summary: Retrieve repository metadata.
       operationId: getRepository
       tags:
         - Repositories
       responses:
-        '200':
-          $ref: '#/components/responses/RepositoryResponse'
-        '404':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/RepositoryResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
     patch:
       summary: Update repository settings such as description or visibility.
       operationId: updateRepository
       tags:
         - Repositories
       requestBody:
-        $ref: '#/components/requestBodies/RepositoryUpdateBody'
+        $ref: "#/components/requestBodies/RepositoryUpdateBody"
       responses:
-        '200':
-          $ref: '#/components/responses/RepositoryResponse'
-        '422':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/RepositoryResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
   /repos/{owner}/{repo}/issues:
     parameters:
-      - $ref: '#/components/parameters/OwnerParam'
-      - $ref: '#/components/parameters/RepoParam'
+      - $ref: "#/components/parameters/OwnerParam"
+      - $ref: "#/components/parameters/RepoParam"
     get:
       summary: List issues in a repository.
       operationId: listRepositoryIssues
       tags:
         - Issues
       responses:
-        '200':
+        "200":
           description: Array of issues.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Issue'
-        '404':
-          $ref: '#/components/responses/ErrorResponse'
+                  $ref: "#/components/schemas/Issue"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
     post:
       summary: Create an issue in the repository.
       operationId: createRepositoryIssue
       tags:
         - Issues
       requestBody:
-        $ref: '#/components/requestBodies/IssueCreateBody'
+        $ref: "#/components/requestBodies/IssueCreateBody"
       responses:
-        '201':
-          $ref: '#/components/responses/IssueResponse'
-        '422':
-          $ref: '#/components/responses/ErrorResponse'
+        "201":
+          $ref: "#/components/responses/IssueResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
   /repos/{owner}/{repo}/issues/{issue_number}:
     parameters:
-      - $ref: '#/components/parameters/OwnerParam'
-      - $ref: '#/components/parameters/RepoParam'
-      - $ref: '#/components/parameters/IssueNumberParam'
+      - $ref: "#/components/parameters/OwnerParam"
+      - $ref: "#/components/parameters/RepoParam"
+      - $ref: "#/components/parameters/IssueNumberParam"
     get:
       summary: Retrieve a single issue.
       operationId: getRepositoryIssue
       tags:
         - Issues
       responses:
-        '200':
-          $ref: '#/components/responses/IssueResponse'
-        '404':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/IssueResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
     patch:
       summary: Update the title, body, or state of an issue.
       operationId: updateRepositoryIssue
       tags:
         - Issues
       requestBody:
-        $ref: '#/components/requestBodies/IssueUpdateBody'
+        $ref: "#/components/requestBodies/IssueUpdateBody"
       responses:
-        '200':
-          $ref: '#/components/responses/IssueResponse'
-        '422':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/IssueResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
   /repos/{owner}/{repo}/pulls:
     parameters:
-      - $ref: '#/components/parameters/OwnerParam'
-      - $ref: '#/components/parameters/RepoParam'
+      - $ref: "#/components/parameters/OwnerParam"
+      - $ref: "#/components/parameters/RepoParam"
     post:
       summary: Open a pull request.
       operationId: createPullRequest
       tags:
         - PullRequests
       requestBody:
-        $ref: '#/components/requestBodies/PullRequestCreateBody'
+        $ref: "#/components/requestBodies/PullRequestCreateBody"
       responses:
-        '201':
-          $ref: '#/components/responses/PullRequestResponse'
-        '422':
-          $ref: '#/components/responses/ErrorResponse'
+        "201":
+          $ref: "#/components/responses/PullRequestResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
   /repos/{owner}/{repo}/pulls/{pull_number}:
     parameters:
-      - $ref: '#/components/parameters/OwnerParam'
-      - $ref: '#/components/parameters/RepoParam'
-      - $ref: '#/components/parameters/PullNumberParam'
+      - $ref: "#/components/parameters/OwnerParam"
+      - $ref: "#/components/parameters/RepoParam"
+      - $ref: "#/components/parameters/PullNumberParam"
     get:
       summary: Retrieve pull request metadata and current merge status.
       operationId: getPullRequest
       tags:
         - PullRequests
       responses:
-        '200':
-          $ref: '#/components/responses/PullRequestResponse'
-        '404':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/PullRequestResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
     patch:
       summary: Update the title, body, or base branch of a pull request.
       operationId: updatePullRequest
       tags:
         - PullRequests
       requestBody:
-        $ref: '#/components/requestBodies/PullRequestUpdateBody'
+        $ref: "#/components/requestBodies/PullRequestUpdateBody"
       responses:
-        '200':
-          $ref: '#/components/responses/PullRequestResponse'
-        '422':
-          $ref: '#/components/responses/ErrorResponse'
+        "200":
+          $ref: "#/components/responses/PullRequestResponse"
+        "422":
+          $ref: "#/components/responses/ErrorResponse"
   /repos/{owner}/{repo}/pulls/{pull_number}/merge:
     parameters:
-      - $ref: '#/components/parameters/OwnerParam'
-      - $ref: '#/components/parameters/RepoParam'
-      - $ref: '#/components/parameters/PullNumberParam'
+      - $ref: "#/components/parameters/OwnerParam"
+      - $ref: "#/components/parameters/RepoParam"
+      - $ref: "#/components/parameters/PullNumberParam"
     put:
       summary: Merge the specified pull request.
       operationId: mergePullRequest
       tags:
         - PullRequests
       requestBody:
-        $ref: '#/components/requestBodies/PullRequestMergeBody'
+        $ref: "#/components/requestBodies/PullRequestMergeBody"
       responses:
-        '200':
+        "200":
           description: Merge status.
           content:
             application/json:
@@ -178,8 +178,8 @@ paths:
                     type: string
                   message:
                     type: string
-        '409':
-          $ref: '#/components/responses/ErrorResponse'
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
 components:
   securitySchemes:
     tokenAuth:
@@ -223,37 +223,37 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/RepositoryCreate'
+            $ref: "#/components/schemas/RepositoryCreate"
     RepositoryUpdateBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/RepositoryUpdate'
+            $ref: "#/components/schemas/RepositoryUpdate"
     IssueCreateBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/IssueCreate'
+            $ref: "#/components/schemas/IssueCreate"
     IssueUpdateBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/IssueUpdate'
+            $ref: "#/components/schemas/IssueUpdate"
     PullRequestCreateBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PullRequestCreate'
+            $ref: "#/components/schemas/PullRequestCreate"
     PullRequestUpdateBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PullRequestUpdate'
+            $ref: "#/components/schemas/PullRequestUpdate"
     PullRequestMergeBody:
       description: Optional commit title/message overrides when merging.
       required: false
@@ -275,25 +275,25 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Repository'
+            $ref: "#/components/schemas/Repository"
     IssueResponse:
       description: Issue representation.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Issue'
+            $ref: "#/components/schemas/Issue"
     PullRequestResponse:
       description: Pull request representation.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/PullRequest'
+            $ref: "#/components/schemas/PullRequest"
     ErrorResponse:
       description: GitHub error payload.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
   schemas:
     Repository:
       type: object
@@ -323,7 +323,7 @@ components:
           type: string
           enum: [public, private, internal]
         owner:
-          $ref: '#/components/schemas/UserSummary'
+          $ref: "#/components/schemas/UserSummary"
         topics:
           type: array
           items:
@@ -395,17 +395,17 @@ components:
           type: string
           enum: [open, closed]
         user:
-          $ref: '#/components/schemas/UserSummary'
+          $ref: "#/components/schemas/UserSummary"
         assignees:
           type: array
           items:
-            $ref: '#/components/schemas/UserSummary'
+            $ref: "#/components/schemas/UserSummary"
         labels:
           type: array
           items:
-            $ref: '#/components/schemas/Label'
+            $ref: "#/components/schemas/Label"
         milestone:
-          $ref: '#/components/schemas/Milestone'
+          $ref: "#/components/schemas/Milestone"
         locked:
           type: boolean
         comments:
@@ -482,18 +482,18 @@ components:
         draft:
           type: boolean
         user:
-          $ref: '#/components/schemas/UserSummary'
+          $ref: "#/components/schemas/UserSummary"
         head:
-          $ref: '#/components/schemas/BranchRef'
+          $ref: "#/components/schemas/BranchRef"
         base:
-          $ref: '#/components/schemas/BranchRef'
+          $ref: "#/components/schemas/BranchRef"
         merged:
           type: boolean
         mergeable:
           type: boolean
           nullable: true
         merged_by:
-          $ref: '#/components/schemas/UserSummary'
+          $ref: "#/components/schemas/UserSummary"
         commits:
           type: integer
         additions:
@@ -561,9 +561,9 @@ components:
         sha:
           type: string
         user:
-          $ref: '#/components/schemas/UserSummary'
+          $ref: "#/components/schemas/UserSummary"
         repo:
-          $ref: '#/components/schemas/Repository'
+          $ref: "#/components/schemas/Repository"
     UserSummary:
       type: object
       properties:
