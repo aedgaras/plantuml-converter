@@ -1,0 +1,284 @@
+@startuml
+hide <<Path>> circle
+hide <<Response>> circle
+hide <<Parameter>> circle
+hide empty methods
+hide empty fields
+skinparam class {
+BackgroundColor<<Path>> Wheat
+}
+set namespaceSeparator none
+
+class "PaymentIntent" {
+  {field} id : string
+  {field} amount : integer
+  {field} currency : string
+  {field} status : string
+  {field} capture_method : string {O}
+  {field} confirmation_method : string {O}
+  {field} customer : string {O}
+  {field} description : string {O}
+  {field} metadata : string -> string
+}
+
+class "PaymentIntentCreate" {
+  {field} amount : integer
+  {field} currency : string
+  {field} customer : string {O}
+  {field} payment_method : string {O}
+  {field} confirm : boolean {O}
+  {field} description : string {O}
+}
+
+class "PaymentIntentUpdate" {
+  {field} payment_method : string {O}
+  {field} description : string {O}
+  {field} metadata : string -> string
+}
+
+class "PaymentIntentConfirm" {
+  {field} payment_method : string {O}
+  {field} return_url : string {O}
+}
+
+class "Customer" {
+  {field} id : string
+  {field} email : string {O}
+  {field} name : string {O}
+  {field} phone : string {O}
+  {field} metadata : string -> string
+}
+
+class "CustomerCreate" {
+  {field} email : string {O}
+  {field} name : string {O}
+  {field} payment_method : string {O}
+  {field} phone : string {O}
+}
+
+class "CustomerUpdate" {
+  {field} email : string {O}
+  {field} name : string {O}
+  {field} payment_method : string {O}
+  {field} phone : string {O}
+  {field} metadata : string -> string
+}
+
+class "Charge" {
+  {field} id : string
+  {field} amount : integer
+  {field} currency : string
+  {field} status : string
+  {field} paid : boolean {O}
+  {field} customer : string {O}
+  {field} receipt_url : string {O}
+}
+
+class "PaymentMethod" {
+  {field} id : string
+  {field} type : string
+}
+
+class "PaymentMethodDetails" {
+  {field} type : string {O}
+}
+
+class "BillingDetails" {
+  {field} name : string {O}
+  {field} email : string {O}
+  {field} phone : string {O}
+}
+
+class "CardDetails" {
+  {field} brand : string {O}
+  {field} last4 : string {O}
+  {field} exp_month : integer {O}
+  {field} exp_year : integer {O}
+  {field} fingerprint : string {O}
+  {field} funding : string {O}
+}
+
+class "SepaDebitDetails" {
+  {field} bank_code : string {O}
+  {field} branch_code : string {O}
+  {field} country : string {O}
+  {field} fingerprint : string {O}
+  {field} last4 : string {O}
+}
+
+class "ShippingDetails" {
+  {field} name : string {O}
+  {field} phone : string {O}
+}
+
+class "Address" {
+  {field} line1 : string {O}
+  {field} line2 : string {O}
+  {field} city : string {O}
+  {field} state : string {O}
+  {field} postal_code : string {O}
+  {field} country : string {O}
+}
+
+class "Error" {
+  {field} type : string
+  {field} message : string
+  {field} code : string {O}
+  {field} param : string {O}
+  {field} decline_code : string {O}
+}
+
+class "PaymentIntentCreateRequest" <<RequestBody>>  {
+}
+
+class "PaymentIntentUpdateRequest" <<RequestBody>>  {
+}
+
+class "PaymentIntentConfirmRequest" <<RequestBody>>  {
+}
+
+class "CustomerCreateRequest" <<RequestBody>>  {
+}
+
+class "CustomerUpdateRequest" <<RequestBody>>  {
+}
+
+class "PaymentIntentId" <<Parameter>>  {
+  {field} value : string
+}
+
+class "CustomerId" <<Parameter>>  {
+  {field} value : string
+}
+
+class "ChargeId" <<Parameter>>  {
+  {field} value : string
+}
+
+class "PaymentIntentResponse" <<Response>>  {
+}
+
+class "CustomerResponse" <<Response>>  {
+}
+
+class "ChargeResponse" <<Response>>  {
+}
+
+class "ErrorResponse" <<Response>>  {
+}
+
+class "createPaymentIntent" <<Path>>  <<POST /v1/payment_intents>>  {
+}
+
+class "getPaymentIntent" <<Path>>  <<GET /v1/payment_intents/{intent}>>  {
+}
+
+class "updatePaymentIntent" <<Path>>  <<PATCH /v1/payment_intents/{intent}>>  {
+}
+
+class "confirmPaymentIntent" <<Path>>  <<POST /v1/payment_intents/{intent}/confirm>>  {
+}
+
+class "createCustomer" <<Path>>  <<POST /v1/customers>>  {
+}
+
+class "getCustomer" <<Path>>  <<GET /v1/customers/{customer}>>  {
+}
+
+class "updateCustomer" <<Path>>  <<PATCH /v1/customers/{customer}>>  {
+}
+
+class "getCharge" <<Path>>  <<GET /v1/charges/{charge}>>  {
+}
+
+"PaymentIntent" --> "0..1" "PaymentMethod"  :  "payment_method"
+
+"PaymentIntent" --> "0..1" "Charge"  :  "latest_charge"
+
+"Customer" --> "0..1" "Address"
+
+"Customer" --> "0..1" "PaymentMethod"  :  "default_payment_method"
+
+"Customer" --> "0..1" "ShippingDetails"  :  "shipping"
+
+"CustomerCreate" --> "0..1" "Address"
+
+"CustomerUpdate" --> "0..1" "Address"
+
+"Charge" --> "0..1" "PaymentMethodDetails"  :  "payment_method_details"
+
+"PaymentMethod" --> "0..1" "BillingDetails"  :  "billing_details"
+
+"PaymentMethod" --> "0..1" "CardDetails"  :  "card"
+
+"PaymentMethod" --> "0..1" "SepaDebitDetails"  :  "sepa_debit"
+
+"PaymentMethodDetails" --> "0..1" "CardDetails"  :  "card"
+
+"PaymentMethodDetails" --> "0..1" "SepaDebitDetails"  :  "sepa_debit"
+
+"BillingDetails" --> "0..1" "Address"
+
+"ShippingDetails" --> "0..1" "Address"
+
+"PaymentIntentCreateRequest" --> "1" "PaymentIntentCreate"
+
+"PaymentIntentUpdateRequest" --> "1" "PaymentIntentUpdate"
+
+"PaymentIntentConfirmRequest" --> "1" "PaymentIntentConfirm"
+
+"CustomerCreateRequest" --> "1" "CustomerCreate"
+
+"CustomerUpdateRequest" --> "1" "CustomerUpdate"
+
+"PaymentIntentResponse" --> "1" "PaymentIntent"
+
+"CustomerResponse" --> "1" "Customer"
+
+"ChargeResponse" --> "1" "Charge"
+
+"ErrorResponse" --> "1" "Error"
+
+"createPaymentIntent" ..> "1" "PaymentIntentResponse"  :  "201"
+
+"createPaymentIntent" ..> "1" "ErrorResponse"  :  "400"
+
+"createPaymentIntent" --> "1" "PaymentIntentCreateRequest"
+
+"getPaymentIntent" ..> "1" "PaymentIntentResponse"  :  "200"
+
+"getPaymentIntent" ..> "1" "ErrorResponse"  :  "404"
+
+"updatePaymentIntent" ..> "1" "PaymentIntentResponse"  :  "200"
+
+"updatePaymentIntent" ..> "1" "ErrorResponse"  :  "400"
+
+"updatePaymentIntent" --> "1" "PaymentIntentUpdateRequest"
+
+"confirmPaymentIntent" ..> "1" "PaymentIntentResponse"  :  "200"
+
+"confirmPaymentIntent" ..> "1" "ErrorResponse"  :  "402"
+
+"confirmPaymentIntent" --> "1" "PaymentIntentConfirmRequest"
+
+"createCustomer" ..> "1" "CustomerResponse"  :  "201"
+
+"createCustomer" ..> "1" "ErrorResponse"  :  "400"
+
+"createCustomer" --> "1" "CustomerCreateRequest"
+
+"getCustomer" ..> "1" "CustomerResponse"  :  "200"
+
+"getCustomer" ..> "1" "ErrorResponse"  :  "404"
+
+"updateCustomer" ..> "1" "CustomerResponse"  :  "200"
+
+"updateCustomer" ..> "1" "ErrorResponse"  :  "400"
+
+"updateCustomer" --> "1" "CustomerUpdateRequest"
+
+"getCharge" ..> "1" "ChargeResponse"  :  "200"
+
+"getCharge" ..> "1" "ErrorResponse"  :  "404"
+
+@enduml

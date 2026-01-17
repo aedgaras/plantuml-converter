@@ -1,0 +1,352 @@
+@startuml
+hide <<Path>> circle
+hide <<Response>> circle
+hide <<Parameter>> circle
+hide empty methods
+hide empty fields
+skinparam class {
+BackgroundColor<<Path>> Wheat
+}
+set namespaceSeparator none
+
+class "Repository" {
+  {field} id : integer
+  {field} name : string
+  {field} full_name : string
+  {field} description : string {O}
+  {field} private : boolean
+  {field} html_url : string {O}
+  {field} default_branch : string {O}
+  {field} visibility : string {O}
+  {field} topics : string[] {O}
+  {field} archived : boolean {O}
+  {field} created_at : timestamp {O}
+  {field} updated_at : timestamp {O}
+}
+
+class "RepositoryCreate" {
+  {field} name : string
+  {field} description : string {O}
+  {field} private : boolean {O}
+  {field} visibility : string {O}
+  {field} auto_init : boolean {O}
+  {field} license_template : string {O}
+}
+
+class "RepositoryUpdate" {
+  {field} name : string {O}
+  {field} description : string {O}
+  {field} private : boolean {O}
+  {field} default_branch : string {O}
+  {field} archived : boolean {O}
+  {field} allow_merge_commit : boolean {O}
+  {field} allow_squash_merge : boolean {O}
+  {field} allow_rebase_merge : boolean {O}
+}
+
+class "Issue" {
+  {field} id : integer
+  {field} number : integer
+  {field} title : string
+  {field} body : string {O}
+  {field} state : string
+  {field} locked : boolean {O}
+  {field} comments : integer {O}
+  {field} created_at : timestamp {O}
+  {field} updated_at : timestamp {O}
+  {field} closed_at : timestamp {O}
+}
+
+class "IssueCreate" {
+  {field} title : string
+  {field} body : string {O}
+  {field} assignees : string[] {O}
+  {field} labels : string[] {O}
+  {field} milestone : integer {O}
+}
+
+class "IssueUpdate" {
+  {field} title : string {O}
+  {field} body : string {O}
+  {field} state : string {O}
+  {field} assignees : string[] {O}
+  {field} labels : string[] {O}
+  {field} milestone : integer {O}
+}
+
+class "PullRequest" {
+  {field} id : integer
+  {field} number : integer
+  {field} state : string
+  {field} title : string
+  {field} body : string {O}
+  {field} draft : boolean {O}
+  {field} merged : boolean {O}
+  {field} mergeable : boolean {O}
+  {field} commits : integer {O}
+  {field} additions : integer {O}
+  {field} deletions : integer {O}
+  {field} changed_files : integer {O}
+  {field} created_at : timestamp {O}
+  {field} updated_at : timestamp {O}
+  {field} closed_at : timestamp {O}
+  {field} merged_at : timestamp {O}
+}
+
+class "PullRequestCreate" {
+  {field} title : string
+  {field} head : string
+  {field} base : string
+  {field} body : string {O}
+  {field} maintainer_can_modify : boolean {O}
+  {field} draft : boolean {O}
+}
+
+class "PullRequestUpdate" {
+  {field} title : string {O}
+  {field} body : string {O}
+  {field} state : string {O}
+  {field} base : string {O}
+  {field} maintainer_can_modify : boolean {O}
+}
+
+class "BranchRef" {
+  {field} label : string {O}
+  {field} ref : string {O}
+  {field} sha : string {O}
+}
+
+class "UserSummary" {
+  {field} id : integer {O}
+  {field} login : string {O}
+  {field} avatar_url : string {O}
+  {field} html_url : string {O}
+  {field} type : string {O}
+}
+
+class "Label" {
+  {field} id : integer {O}
+  {field} name : string {O}
+  {field} color : string {O}
+  {field} description : string {O}
+}
+
+class "Milestone" {
+  {field} id : integer {O}
+  {field} number : integer {O}
+  {field} title : string {O}
+  {field} state : string {O}
+  {field} description : string {O}
+  {field} due_on : timestamp {O}
+}
+
+class "Error.errors" {
+  {field} resource : string {O}
+  {field} field : string {O}
+  {field} code : string {O}
+}
+
+class "Error" {
+  {field} message : string
+  {field} documentation_url : string {O}
+}
+
+class "RepositoryCreateBody" <<RequestBody>>  {
+}
+
+class "RepositoryUpdateBody" <<RequestBody>>  {
+}
+
+class "IssueCreateBody" <<RequestBody>>  {
+}
+
+class "IssueUpdateBody" <<RequestBody>>  {
+}
+
+class "PullRequestCreateBody" <<RequestBody>>  {
+}
+
+class "PullRequestUpdateBody" <<RequestBody>>  {
+}
+
+class "PullRequestMergeBody" <<RequestBody>>  {
+  {field} commit_title : string {O}
+  {field} commit_message : string {O}
+  {field} merge_method : string {O}
+}
+
+class "OwnerParam" <<Parameter>>  {
+  {field} value : string
+}
+
+class "RepoParam" <<Parameter>>  {
+  {field} value : string
+}
+
+class "IssueNumberParam" <<Parameter>>  {
+  {field} value : integer
+}
+
+class "PullNumberParam" <<Parameter>>  {
+  {field} value : integer
+}
+
+class "RepositoryResponse" <<Response>>  {
+}
+
+class "IssueResponse" <<Response>>  {
+}
+
+class "PullRequestResponse" <<Response>>  {
+}
+
+class "ErrorResponse" <<Response>>  {
+}
+
+class "createRepositoryForAuthenticatedUser" <<Path>>  <<POST /user/repos>>  {
+}
+
+class "getRepository" <<Path>>  <<GET /repos/{owner}/{repo}>>  {
+}
+
+class "updateRepository" <<Path>>  <<PATCH /repos/{owner}/{repo}>>  {
+}
+
+class "listRepositoryIssues" <<Path>>  <<GET /repos/{owner}/{repo}/issues>>  {
+}
+
+class "listRepositoryIssues 200" <<Response>>  {
+}
+
+class "createRepositoryIssue" <<Path>>  <<POST /repos/{owner}/{repo}/issues>>  {
+}
+
+class "getRepositoryIssue" <<Path>>  <<GET /repos/{owner}/{repo}/issues/{issue_number}>>  {
+}
+
+class "updateRepositoryIssue" <<Path>>  <<PATCH /repos/{owner}/{repo}/issues/{issue_number}>>  {
+}
+
+class "createPullRequest" <<Path>>  <<POST /repos/{owner}/{repo}/pulls>>  {
+}
+
+class "getPullRequest" <<Path>>  <<GET /repos/{owner}/{repo}/pulls/{pull_number}>>  {
+}
+
+class "updatePullRequest" <<Path>>  <<PATCH /repos/{owner}/{repo}/pulls/{pull_number}>>  {
+}
+
+class "mergePullRequest" <<Path>>  <<PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge>>  {
+}
+
+class "mergePullRequest 200" <<Response>>  {
+  {field} merged : boolean {O}
+  {field} sha : string {O}
+  {field} message : string {O}
+}
+
+"Repository" --> "0..1" "UserSummary"  :  "owner"
+
+"Issue" --> "0..1" "UserSummary"  :  "user"
+
+"Issue" --> "*" "UserSummary"  :  "assignees"
+
+"Issue" --> "*" "Label"  :  "labels"
+
+"Issue" --> "0..1" "Milestone"
+
+"PullRequest" --> "0..1" "UserSummary"  :  "user"
+
+"PullRequest" --> "0..1" "BranchRef"  :  "head"
+
+"PullRequest" --> "0..1" "BranchRef"  :  "base"
+
+"PullRequest" --> "0..1" "UserSummary"  :  "merged_by"
+
+"BranchRef" --> "0..1" "UserSummary"  :  "user"
+
+"BranchRef" --> "0..1" "Repository"  :  "repo"
+
+"Error" --> "*" "Error.errors"  :  "errors"
+
+"RepositoryCreateBody" --> "1" "RepositoryCreate"
+
+"RepositoryUpdateBody" --> "1" "RepositoryUpdate"
+
+"IssueCreateBody" --> "1" "IssueCreate"
+
+"IssueUpdateBody" --> "1" "IssueUpdate"
+
+"PullRequestCreateBody" --> "1" "PullRequestCreate"
+
+"PullRequestUpdateBody" --> "1" "PullRequestUpdate"
+
+"RepositoryResponse" --> "1" "Repository"
+
+"IssueResponse" --> "1" "Issue"
+
+"PullRequestResponse" --> "1" "PullRequest"
+
+"ErrorResponse" --> "1" "Error"
+
+"createRepositoryForAuthenticatedUser" ..> "1" "RepositoryResponse"  :  "201"
+
+"createRepositoryForAuthenticatedUser" ..> "1" "ErrorResponse"  :  "422"
+
+"createRepositoryForAuthenticatedUser" --> "1" "RepositoryCreateBody"
+
+"getRepository" ..> "1" "RepositoryResponse"  :  "200"
+
+"getRepository" ..> "1" "ErrorResponse"  :  "404"
+
+"updateRepository" ..> "1" "RepositoryResponse"  :  "200"
+
+"updateRepository" ..> "1" "ErrorResponse"  :  "422"
+
+"updateRepository" --> "1" "RepositoryUpdateBody"
+
+"listRepositoryIssues 200" --> "*" "Issue"
+
+"listRepositoryIssues" ..> "1" "listRepositoryIssues 200"  :  "200"
+
+"listRepositoryIssues" ..> "1" "ErrorResponse"  :  "404"
+
+"createRepositoryIssue" ..> "1" "IssueResponse"  :  "201"
+
+"createRepositoryIssue" ..> "1" "ErrorResponse"  :  "422"
+
+"createRepositoryIssue" --> "1" "IssueCreateBody"
+
+"getRepositoryIssue" ..> "1" "IssueResponse"  :  "200"
+
+"getRepositoryIssue" ..> "1" "ErrorResponse"  :  "404"
+
+"updateRepositoryIssue" ..> "1" "IssueResponse"  :  "200"
+
+"updateRepositoryIssue" ..> "1" "ErrorResponse"  :  "422"
+
+"updateRepositoryIssue" --> "1" "IssueUpdateBody"
+
+"createPullRequest" ..> "1" "PullRequestResponse"  :  "201"
+
+"createPullRequest" ..> "1" "ErrorResponse"  :  "422"
+
+"createPullRequest" --> "1" "PullRequestCreateBody"
+
+"getPullRequest" ..> "1" "PullRequestResponse"  :  "200"
+
+"getPullRequest" ..> "1" "ErrorResponse"  :  "404"
+
+"updatePullRequest" ..> "1" "PullRequestResponse"  :  "200"
+
+"updatePullRequest" ..> "1" "ErrorResponse"  :  "422"
+
+"updatePullRequest" --> "1" "PullRequestUpdateBody"
+
+"mergePullRequest" ..> "1" "mergePullRequest 200"  :  "200"
+
+"mergePullRequest" ..> "1" "ErrorResponse"  :  "409"
+
+"mergePullRequest" --> "1" "PullRequestMergeBody"
+
+@enduml

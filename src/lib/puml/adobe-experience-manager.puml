@@ -1,0 +1,246 @@
+@startuml
+hide <<Path>> circle
+hide <<Response>> circle
+hide <<Parameter>> circle
+hide empty methods
+hide empty fields
+skinparam class {
+BackgroundColor<<Path>> Wheat
+}
+set namespaceSeparator none
+
+class "InstallStatus.status" {
+  {field} finished : boolean {O}
+  {field} itemCount : integer {O}
+}
+
+class "InstallStatus" {
+  {field} details : string[] {O}
+}
+
+class "TruststoreInfo" {
+  {field} exists : boolean {O}
+}
+
+class "TruststoreItems" {
+  {field} alias : string {O}
+  {field} entryType : string {O}
+  {field} issuer : string {O}
+  {field} subject : string {O}
+  {field} notBefore : string {O}
+  {field} notAfter : string {O}
+  {field} serialNumber : integer {O}
+}
+
+class "BundleInfo" {
+  {field} status : string {O}
+}
+
+class "BundleData" {
+  {field} id : integer {O}
+  {field} symbolicName : string {O}
+  {field} version : string {O}
+  {field} category : string {O}
+  {field} state : string {O}
+  {field} stateRaw : integer {O}
+  {field} fragment : boolean {O}
+}
+
+class "BundleDataProp" {
+  {field} key : string {O}
+  {field} value : string {O}
+}
+
+class "KeystoreInfo" {
+  {field} exists : boolean {O}
+}
+
+class "KeystoreItems" {
+  {field} alias : string {O}
+  {field} entryType : string {O}
+  {field} algorithm : string {O}
+  {field} format : string {O}
+}
+
+class "KeystoreChainItems" {
+  {field} issuer : string {O}
+  {field} subject : string {O}
+  {field} notBefore : string {O}
+  {field} notAfter : string {O}
+  {field} serialNumber : integer {O}
+}
+
+class "SamlConfigurationInfo" {
+  {field} pid : string {O}
+  {field} title : string {O}
+  {field} description : string {O}
+  {field} enabled : boolean {O}
+}
+
+class "SamlConfigurationProperties" {
+  {field} serviceProviderEntityId : string {O}
+  {field} idpUrl : string {O}
+  {field} assertionConsumerServiceURL : string {O}
+  {field} defaultRedirectUrl : string {O}
+  {field} defaultGroups : string[] {O}
+  {field} synchronizeAttributes : string[] {O}
+  {field} userIDAttribute : string {O}
+  {field} userIntermediatePath : string {O}
+  {field} addGroupMemberships : boolean {O}
+  {field} createUser : boolean {O}
+  {field} useEncryption : boolean {O}
+  {field} handleLogout : boolean {O}
+  {field} logoutUrl : string {O}
+  {field} nameIdFormat : string {O}
+  {field} digestMethod : string {O}
+  {field} signatureMethod : string {O}
+  {field} spPrivateKeyAlias : string {O}
+  {field} clockTolerance : integer {O}
+}
+
+class "SamlConfigurationSettings" {
+  {field} serviceProviderEntityId : string
+  {field} idpUrl : string
+  {field} assertionConsumerServiceURL : string {O}
+  {field} defaultRedirectUrl : string {O}
+  {field} defaultGroups : string[] {O}
+  {field} synchronizeAttributes : string[] {O}
+  {field} userIDAttribute : string {O}
+  {field} userIntermediatePath : string {O}
+  {field} addGroupMemberships : boolean {O}
+  {field} createUser : boolean {O}
+  {field} useEncryption : boolean {O}
+  {field} handleLogout : boolean {O}
+  {field} logoutUrl : string {O}
+  {field} nameIdFormat : string {O}
+  {field} digestMethod : string {O}
+  {field} signatureMethod : string {O}
+  {field} spPrivateKeyAlias : string {O}
+  {field} clockTolerance : integer {O}
+}
+
+class "SamlConfigurationSettingsBody" <<RequestBody>>  {
+}
+
+class "KeystoreUpload" <<RequestBody>>  {
+  {field} keyStore : byte[]
+  {field} certChain : byte[] {O}
+  {field} privateKey : byte[] {O}
+  {field} currentPassword : string {O}
+  {field} newPassword : string {O}
+  {field} confirmPassword : string {O}
+}
+
+class "getInstallStatus" <<Path>>  <<GET /crx/packmgr/installstatus.jsp>>  {
+}
+
+class "getInstallStatus default" <<Response>>  {
+  {field} value : string
+}
+
+class "getTruststoreInfo" <<Path>>  <<GET /libs/granite/security/truststore.json>>  {
+}
+
+class "getTruststoreInfo default" <<Response>>  {
+  {field} value : string
+}
+
+class "getBundleInfo" <<Path>>  <<GET /system/console/bundles/{name}.json>>  {
+}
+
+class "getBundleInfo default" <<Response>>  {
+  {field} value : string
+}
+
+class "getSamlConfiguration" <<Path>>  <<GET /system/console/configMgr/com.adobe.granite.auth.saml.SamlAuthenticationHandler>>  {
+}
+
+class "getSamlConfiguration default" <<Response>>  {
+  {field} value : string
+}
+
+class "postSamlConfiguration" <<Path>>  <<POST /system/console/configMgr/com.adobe.granite.auth.saml.SamlAuthenticationHandler>>  {
+}
+
+class "postSamlConfiguration default" <<Response>>  {
+  {field} value : string
+}
+
+class "getAuthorizableKeystore" <<Path>>  <<GET /authorizables/{authorizableId}/keystore>>  {
+}
+
+class "getAuthorizableKeystore default" <<Response>>  {
+  {field} value : string
+}
+
+class "postAuthorizableKeystore" <<Path>>  <<POST /authorizables/{authorizableId}/keystore>>  {
+}
+
+class "postAuthorizableKeystore default" <<Response>>  {
+  {field} value : string
+}
+
+class "getAuthorizableKeystoreFile" <<Path>>  <<GET /authorizables/{authorizableId}/keystore/file>>  {
+}
+
+class "getAuthorizableKeystoreFile 200 application/octet-stream" <<Response>>  {
+  {field} value : byte[]
+}
+
+class "getAuthorizableKeystoreFile default" <<Response>>  {
+  {field} value : string
+}
+
+"InstallStatus" *--> "0..1" "InstallStatus.status"  :  "status"
+
+"TruststoreInfo" --> "*" "TruststoreItems"  :  "aliases"
+
+"BundleInfo" --> "*" "BundleData"  :  "bundles"
+
+"BundleData" --> "*" "BundleDataProp"  :  "props"
+
+"KeystoreInfo" --> "*" "KeystoreItems"  :  "aliases"
+
+"KeystoreItems" --> "*" "KeystoreChainItems"  :  "chain"
+
+"SamlConfigurationInfo" --> "0..1" "SamlConfigurationProperties"  :  "properties"
+
+"SamlConfigurationSettingsBody" --> "1" "SamlConfigurationSettings"
+
+"getInstallStatus" ..> "1" "InstallStatus"  :  "200"
+
+"getInstallStatus" ..> "1" "getInstallStatus default"  :  "default"
+
+"getTruststoreInfo" ..> "1" "TruststoreInfo"  :  "200"
+
+"getTruststoreInfo" ..> "1" "getTruststoreInfo default"  :  "default"
+
+"getBundleInfo" ..> "1" "BundleInfo"  :  "200"
+
+"getBundleInfo" ..> "1" "getBundleInfo default"  :  "default"
+
+"getSamlConfiguration" ..> "1" "SamlConfigurationInfo"  :  "200"
+
+"getSamlConfiguration" ..> "1" "getSamlConfiguration default"  :  "default"
+
+"postSamlConfiguration" ..> "1" "SamlConfigurationInfo"  :  "200"
+
+"postSamlConfiguration" ..> "1" "postSamlConfiguration default"  :  "default"
+
+"postSamlConfiguration" --> "1" "SamlConfigurationSettingsBody"
+
+"getAuthorizableKeystore" ..> "1" "KeystoreInfo"  :  "200"
+
+"getAuthorizableKeystore" ..> "1" "getAuthorizableKeystore default"  :  "default"
+
+"postAuthorizableKeystore" ..> "1" "KeystoreInfo"  :  "200"
+
+"postAuthorizableKeystore" ..> "1" "postAuthorizableKeystore default"  :  "default"
+
+"postAuthorizableKeystore" --> "1" "KeystoreUpload"
+
+"getAuthorizableKeystoreFile" ..> "1" "getAuthorizableKeystoreFile 200 application/octet-stream"  :  "200 application/octet-stream"
+
+"getAuthorizableKeystoreFile" ..> "1" "getAuthorizableKeystoreFile default"  :  "default"
+
+@enduml
