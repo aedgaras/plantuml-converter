@@ -1,7 +1,31 @@
 "use client";
 
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import type {
+  PointerEvent as ReactPointerEvent,
+  RefObject,
+  WheelEvent as ReactWheelEvent,
+} from "react";
+
+import { cn } from "@/lib/utils";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { CodeEditor } from "../editor/code-editor";
 import { useDashboard } from "./useDashboard";
+import { useResiziblePanel } from "./useResizeablePanel";
 
 export default function Dashboard() {
   const {
@@ -16,70 +40,78 @@ export default function Dashboard() {
     fixturesError,
     plantUmlCode,
   } = useDashboard();
+  const {
+    EDITOR_PANEL_MIN_SIZE,
+    editorPanelDefaultSize,
+    DIAGRAM_PANEL_MIN_SIZE,
+    diagramPanelMaxSize,
+    diagramPanelDefaultSize,
+  } = useResiziblePanel(diagramSize);
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
-      <header className="border-b bg-white px-6 py-3 shadow-sm border-gray-200 dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-            PlantUML to OpenAPI Converter
-          </h1>
-        </div>
+      <header className="border-b border-gray-200 bg-white px-6 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+          PlantUML to OpenAPI Converter
+        </h1>
       </header>
 
-      <main className="flex flex-1 flex-col overflow-hidden">
-        {/* Top section with editors */}
-        <div className="flex flex-1 flex-col md:flex-row">
-          {/* Left: PlantUML input */}
-          <div className="flex h-1/2 w-full flex-col border-r border-gray-200 dark:border-gray-700 md:h-full md:w-1/2">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <h2 className="font-medium text-gray-700 dark:text-gray-200">
-                PlantUML Input
-              </h2>
-              <div className="flex flex-col items-end gap-1">
-                <select
-                  id="fixture-select"
-                  value={selectedFixtureId}
-                  onChange={handleFixtureChange}
-                  disabled={fixturesLoading}
-                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-                >
-                  <option value="">
-                    {fixturesLoading ? "Loading..." : "Select PlantUML fixture"}
-                  </option>
-                  {fixturesByCategory.map(({ category, fixtures }) => (
-                    <optgroup key={category} label={category}>
-                      {fixtures.map((fixture) => (
-                        <option key={fixture.id} value={fixture.id}>
-                          {fixture.label}
-                        </option>
+      <ResizablePanelGroup
+        direction="vertical"
+        className="flex-1 overflow-hidden"
+      >
+        <ResizablePanel
+          defaultSize={editorPanelDefaultSize}
+          minSize={EDITOR_PANEL_MIN_SIZE}
+          className="min-h-0"
+        >
+          <main className="flex h-full flex-col overflow-hidden">
+            <div className="flex flex-1 flex-col md:flex-row">
+              <Panel
+                title="PlantUML Input"
+                className="h-1/2 w-full border-r border-gray-200 dark:border-gray-700 md:h-full md:w-1/2"
+                headerActions={
+                  <div className="flex flex-col items-end gap-1">
+                    <select
+                      id="fixture-select"
+                      value={selectedFixtureId}
+                      onChange={handleFixtureChange}
+                      disabled={fixturesLoading}
+                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">
+                        {fixturesLoading
+                          ? "Loading..."
+                          : "Select PlantUML fixture"}
+                      </option>
+                      {fixturesByCategory.map(({ category, fixtures }) => (
+                        <optgroup key={category} label={category}>
+                          {fixtures.map((fixture) => (
+                            <option key={fixture.id} value={fixture.id}>
+                              {fixture.label}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
-                    </optgroup>
-                  ))}
-                </select>
-                {fixturesError && (
-                  <p className="text-xs text-red-500">{fixturesError}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <CodeEditor
-                value={plantUmlCode}
-                onChange={handleUmlChange}
-                language="plantuml"
-                height="100%"
-              />
-            </div>
-          </div>
+                    </select>
+                    {fixturesError && (
+                      <p className="text-xs text-red-500">{fixturesError}</p>
+                    )}
+                  </div>
+                }
+              >
+                <CodeEditor
+                  value={plantUmlCode}
+                  onChange={handleUmlChange}
+                  language="plantuml"
+                  height="100%"
+                />
+              </Panel>
 
-          <div className="flex h-1/2 w-full flex-col border-t border-gray-200 dark:border-gray-700 md:h-full md:w-1/2 md:border-t-0">
-            <div className="flex flex-1 flex-col border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <h2 className="font-medium text-gray-700 dark:text-gray-200">
-                  OpenAPI Schema
-                </h2>
-              </div>
-              <div className="flex-1 overflow-hidden">
+              <Panel
+                title="OpenAPI Schema"
+                className="h-1/2 w-full border-t border-gray-200 dark:border-gray-700 md:h-full md:w-1/2 md:border-t-0"
+              >
                 <CodeEditor
                   value={openApiSchema}
                   onChange={() => {}}
@@ -87,40 +119,321 @@ export default function Dashboard() {
                   height="100%"
                   readOnly={true}
                 />
-              </div>
+              </Panel>
             </div>
-          </div>
-        </div>
-      </main>
+          </main>
+        </ResizablePanel>
 
-      <div className="grid grid-cols-1">
-        <div className="flex flex-col">
-          <div className="flex flex-1 flex-col border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-700 dark:text-gray-200">
-                  PlantUML Diagram
-                </span>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden bg-white dark:bg-gray-900">
-              <div className="flex h-full w-full items-center justify-center overflow-auto p-4">
-                <img
-                  src={diagramUrl === "" ? "./placeholder.svg" : diagramUrl}
-                  alt="PlantUML Diagram"
-                  width={diagramSize.width || undefined}
-                  height={diagramSize.height || undefined}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "100%",
-                    objectFit: "contain",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        <ResizableHandle withHandle className="bg-gray-200 dark:bg-gray-700" />
+
+        <ResizablePanel
+          defaultSize={diagramPanelDefaultSize}
+          minSize={DIAGRAM_PANEL_MIN_SIZE}
+          maxSize={diagramPanelMaxSize}
+          className="min-h-0"
+        >
+          <Panel
+            title="PlantUML Diagram"
+            className="h-full"
+            contentClassName="bg-white dark:bg-gray-900 min-h-0"
+          >
+            <DiagramPreview diagramUrl={diagramUrl} diagramSize={diagramSize} />
+          </Panel>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
+}
+
+type PanelProps = {
+  title: string;
+  children: ReactNode;
+  headerActions?: ReactNode;
+  className?: string;
+  contentClassName?: string;
+};
+
+function Panel({
+  title,
+  children,
+  headerActions,
+  className,
+  contentClassName,
+}: PanelProps) {
+  return (
+    <section className={cn("flex min-h-0 flex-col", className)}>
+      <PanelHeader title={title} actions={headerActions} />
+      <div className={cn("flex-1 overflow-hidden min-h-0", contentClassName)}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+type PanelHeaderProps = {
+  title: string;
+  actions?: ReactNode;
+};
+
+function PanelHeader({ title, actions }: PanelHeaderProps) {
+  return (
+    <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+      <h2 className="font-medium text-gray-700 dark:text-gray-200">{title}</h2>
+      {actions}
+    </div>
+  );
+}
+
+type DiagramPreviewProps = {
+  diagramUrl: string;
+  diagramSize: { width: number; height: number };
+};
+
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.25;
+
+function DiagramPreview({ diagramUrl, diagramSize }: DiagramPreviewProps) {
+  const fallbackUrl = diagramUrl || "./placeholder.svg";
+  const previewAlt = "PlantUML Diagram";
+  const dialogScroll = useDraggableScroll();
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const clampZoom = useCallback(
+    (nextZoom: number) =>
+      Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number.isFinite(nextZoom) ? nextZoom : 1)),
+    [],
+  );
+  const adjustZoom = useCallback(
+    (delta: number) => {
+      setZoomLevel((prev) => clampZoom(prev + delta));
+    },
+    [clampZoom],
+  );
+  const handleZoomIn = useCallback(() => adjustZoom(ZOOM_STEP), [adjustZoom]);
+  const handleZoomOut = useCallback(() => adjustZoom(-ZOOM_STEP), [adjustZoom]);
+  const handleZoomReset = useCallback(() => setZoomLevel(1), []);
+  const handleWheelZoom = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      if (!event.ctrlKey && !event.metaKey) {
+        return;
+      }
+
+      event.preventDefault();
+      const direction = event.deltaY < 0 ? 1 : -1;
+      adjustZoom(direction * ZOOM_STEP);
+    },
+    [adjustZoom],
+  );
+
+  useEffect(() => {
+    setZoomLevel(1);
+  }, [diagramUrl]);
+
+  const zoomPercent = Math.round(zoomLevel * 100);
+  const scaledWidth =
+    diagramSize.width && diagramSize.width > 0
+      ? diagramSize.width * zoomLevel
+      : undefined;
+  const scaledHeight =
+    diagramSize.height && diagramSize.height > 0
+      ? diagramSize.height * zoomLevel
+      : undefined;
+  const previewImage = (
+    <img
+      src={fallbackUrl}
+      alt={previewAlt}
+      width={diagramSize.width || undefined}
+      height={diagramSize.height || undefined}
+      style={{
+        maxWidth: "100%",
+        maxHeight: "100%",
+        objectFit: "contain",
+      }}
+      className="pointer-events-none select-none"
+    />
+  );
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="flex h-full min-h-0 w-full cursor-zoom-in items-center justify-center overflow-auto p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+          aria-label="Open PlantUML diagram preview in a larger view"
+        >
+          {previewImage}
+        </button>
+      </DialogTrigger>
+
+      <DialogContent
+        className="max-w-[90rem] bg-white dark:bg-gray-900 sm:max-w-[90rem]"
+        aria-describedby="diagram-dialog-description"
+      >
+        <DialogHeader>
+          <DialogTitle>PlantUML Diagram</DialogTitle>
+          <DialogDescription id="diagram-dialog-description">
+            Scroll or drag this larger view to inspect details.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div
+          ref={dialogScroll.containerRef}
+          onPointerDown={dialogScroll.handlePointerDown}
+          onPointerMove={dialogScroll.handlePointerMove}
+          onPointerUp={dialogScroll.handlePointerUp}
+          onPointerLeave={dialogScroll.handlePointerUp}
+          onPointerCancel={dialogScroll.handlePointerUp}
+          onWheel={handleWheelZoom}
+          tabIndex={-1}
+          className={cn(
+            "relative max-h-[80vh] min-h-[50vh] w-full overflow-auto rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950",
+            dialogScroll.isDragging ? "cursor-grabbing" : "cursor-grab"
+          )}
+        >
+          <img
+            src={fallbackUrl}
+            alt={previewAlt}
+            width={scaledWidth}
+            height={scaledHeight}
+            style={{
+              width: scaledWidth ?? undefined,
+              height: scaledHeight ?? undefined,
+            }}
+            className="mx-auto block select-none max-w-none"
+          />
+        </div>
+
+        <DialogFooter className="mt-4 flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Zoom: {zoomPercent}%
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= MIN_ZOOM}
+            >
+              -
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleZoomReset}
+              disabled={zoomLevel === 1}
+            >
+              Reset
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= MAX_ZOOM}
+            >
+              +
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type DraggableScroll = {
+  containerRef: RefObject<HTMLDivElement | null>;
+  handlePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  handlePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  handlePointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  isDragging: boolean;
+};
+
+function useDraggableScroll(): DraggableScroll {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragState = useRef({
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const element = containerRef.current;
+      if (!element) {
+        return;
+      }
+
+      event.preventDefault();
+      element.focus({ preventScroll: true });
+      element.setPointerCapture(event.pointerId);
+      dragState.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        scrollLeft: element.scrollLeft,
+        scrollTop: element.scrollTop,
+      };
+      setIsDragging(true);
+    },
+    []
+  );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isDragging) {
+        return;
+      }
+
+      const element = containerRef.current;
+      if (!element) {
+        return;
+      }
+
+      event.preventDefault();
+      const deltaX = event.clientX - dragState.current.startX;
+      const deltaY = event.clientY - dragState.current.startY;
+      element.scrollLeft = dragState.current.scrollLeft - deltaX;
+      element.scrollTop = dragState.current.scrollTop - deltaY;
+    },
+    [isDragging]
+  );
+
+  const endDragging = useCallback(() => {
+    setIsDragging(false);
+    const element = containerRef.current;
+    const { pointerId } = dragState.current;
+    if (element && pointerId !== -1) {
+      try {
+        element.releasePointerCapture(pointerId);
+      } catch {
+        // no-op if pointer capture was already released
+      }
+    }
+    dragState.current.pointerId = -1;
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isDragging) {
+        return;
+      }
+
+      event.preventDefault();
+      endDragging();
+    },
+    [endDragging, isDragging]
+  );
+
+  return {
+    containerRef,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    isDragging,
+  };
 }
