@@ -1,0 +1,303 @@
+@startuml
+
+top to bottom direction
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 80
+skinparam wrapWidth 200
+
+package "API" {
+
+  class Op_createRepositoryForAuthenticatedUser <<operation>> {
+    path: "/user/repos"
+    method: POST
+    operationId: createRepositoryForAuthenticatedUser
+  }
+
+  class Op_getRepository <<operation>> {
+    path: "/repos/{owner}/{repo}"
+    method: GET
+    operationId: getRepository
+  }
+
+  class Op_updateRepository <<operation>> {
+    path: "/repos/{owner}/{repo}"
+    method: PATCH
+    operationId: updateRepository
+  }
+
+  class Op_listRepositoryIssues <<operation>> {
+    path: "/repos/{owner}/{repo}/issues"
+    method: GET
+    operationId: listRepositoryIssues
+  }
+
+  class Op_createRepositoryIssue <<operation>> {
+    path: "/repos/{owner}/{repo}/issues"
+    method: POST
+    operationId: createRepositoryIssue
+  }
+
+  class Op_getRepositoryIssue <<operation>> {
+    path: "/repos/{owner}/{repo}/issues/{issue_number}"
+    method: GET
+    operationId: getRepositoryIssue
+  }
+
+  class Op_updateRepositoryIssue <<operation>> {
+    path: "/repos/{owner}/{repo}/issues/{issue_number}"
+    method: PATCH
+    operationId: updateRepositoryIssue
+  }
+
+  class Op_createPullRequest <<operation>> {
+    path: "/repos/{owner}/{repo}/pulls"
+    method: POST
+    operationId: createPullRequest
+  }
+
+  class Op_getPullRequest <<operation>> {
+    path: "/repos/{owner}/{repo}/pulls/{pull_number}"
+    method: GET
+    operationId: getPullRequest
+  }
+
+  class Op_updatePullRequest <<operation>> {
+    path: "/repos/{owner}/{repo}/pulls/{pull_number}"
+    method: PATCH
+    operationId: updatePullRequest
+  }
+
+  class Op_mergePullRequest <<operation>> {
+    path: "/repos/{owner}/{repo}/pulls/{pull_number}/merge"
+    method: PUT
+    operationId: mergePullRequest
+  }
+
+  class Param_owner <<parameter>> {
+    owner: string {required}
+    in: path
+  }
+
+  class Param_repo <<parameter>> {
+    repo: string {required}
+    in: path
+  }
+
+  class Param_issue_number <<parameter>> {
+    issue_number: integer {required}
+    in: path
+  }
+
+  class Param_pull_number <<parameter>> {
+    pull_number: integer {required}
+    in: path
+  }
+
+  class RB_RepositoryCreate <<requestBody>>
+  class RB_RepositoryUpdate <<requestBody>>
+  class RB_IssueCreate <<requestBody>>
+  class RB_IssueUpdate <<requestBody>>
+  class RB_PullRequestCreate <<requestBody>>
+  class RB_PullRequestUpdate <<requestBody>>
+  class RB_PullRequestMerge <<requestBody>>
+}
+
+package "Models" {
+
+  class Repository {
+    id: integer {required}
+    name: string {required}
+    full_name: string {required}
+    private: boolean {required}
+    description: string {optional}
+    html_url: string {optional}
+    default_branch: string {optional}
+    visibility: string {optional}
+    archived: boolean {optional}
+    created_at: string {optional}
+    updated_at: string {optional}
+  }
+
+  class RepositoryCreate {
+    name: string {required}
+    description: string {optional}
+    private: boolean {optional}
+    visibility: string {optional}
+    auto_init: boolean {optional}
+    license_template: string {optional}
+  }
+
+  class RepositoryUpdate {
+    name: string {optional}
+    description: string {optional}
+    private: boolean {optional}
+    default_branch: string {optional}
+    archived: boolean {optional}
+    allow_merge_commit: boolean {optional}
+    allow_squash_merge: boolean {optional}
+    allow_rebase_merge: boolean {optional}
+  }
+
+  class Issue {
+    id: integer {required}
+    number: integer {required}
+    title: string {required}
+    state: string {required}
+    body: string {optional}
+    locked: boolean {optional}
+    comments: integer {optional}
+    created_at: string {optional}
+    updated_at: string {optional}
+    closed_at: string {optional}
+  }
+
+  class IssueCreate {
+    title: string {required}
+    body: string {optional}
+    milestone: integer {optional}
+  }
+
+  class IssueUpdate {
+    title: string {optional}
+    body: string {optional}
+    state: string {optional}
+    milestone: integer {optional}
+  }
+
+  class PullRequest {
+    id: integer {required}
+    number: integer {required}
+    state: string {required}
+    title: string {required}
+    body: string {optional}
+    draft: boolean {optional}
+    merged: boolean {optional}
+    mergeable: boolean {optional}
+    commits: integer {optional}
+    additions: integer {optional}
+    deletions: integer {optional}
+    changed_files: integer {optional}
+    created_at: string {optional}
+    updated_at: string {optional}
+    closed_at: string {optional}
+    merged_at: string {optional}
+  }
+
+  class PullRequestCreate {
+    title: string {required}
+    head: string {required}
+    base: string {required}
+    body: string {optional}
+    maintainer_can_modify: boolean {optional}
+    draft: boolean {optional}
+  }
+
+  class PullRequestUpdate {
+    title: string {optional}
+    body: string {optional}
+    state: string {optional}
+    base: string {optional}
+    maintainer_can_modify: boolean {optional}
+  }
+
+  class BranchRef {
+    label: string {optional}
+    ref: string {optional}
+    sha: string {optional}
+  }
+
+  class UserSummary {
+    id: integer {optional}
+    login: string {optional}
+    avatar_url: string {optional}
+    html_url: string {optional}
+    type: string {optional}
+  }
+
+  class Label {
+    id: integer {optional}
+    name: string {optional}
+    color: string {optional}
+    description: string {optional}
+  }
+
+  class Milestone {
+    id: integer {optional}
+    number: integer {optional}
+    title: string {optional}
+    state: string {optional}
+    description: string {optional}
+    due_on: string {optional}
+  }
+
+  class Error {
+    message: string {required}
+    documentation_url: string {optional}
+  }
+}
+
+' ---------------------------
+' Operation → Request / Response links
+' ---------------------------
+
+API.Op_createRepositoryForAuthenticatedUser --> API.RB_RepositoryCreate
+API.RB_RepositoryCreate --> Models.RepositoryCreate
+API.Op_createRepositoryForAuthenticatedUser --> Models.Repository : 201
+API.Op_createRepositoryForAuthenticatedUser --> Models.Error : 422
+
+API.Op_getRepository --> Models.Repository : 200
+API.Op_getRepository --> Models.Error : 404
+
+API.Op_updateRepository --> API.RB_RepositoryUpdate
+API.RB_RepositoryUpdate --> Models.RepositoryUpdate
+API.Op_updateRepository --> Models.Repository : 200
+API.Op_updateRepository --> Models.Error : 422
+
+API.Op_listRepositoryIssues --> Models.Issue : "200 array"
+API.Op_listRepositoryIssues --> Models.Error : 404
+
+API.Op_createRepositoryIssue --> API.RB_IssueCreate
+API.RB_IssueCreate --> Models.IssueCreate
+API.Op_createRepositoryIssue --> Models.Issue : 201
+API.Op_createRepositoryIssue --> Models.Error : 422
+
+API.Op_getRepositoryIssue --> Models.Issue : 200
+API.Op_getRepositoryIssue --> Models.Error : 404
+
+API.Op_updateRepositoryIssue --> API.RB_IssueUpdate
+API.RB_IssueUpdate --> Models.IssueUpdate
+API.Op_updateRepositoryIssue --> Models.Issue : 200
+API.Op_updateRepositoryIssue --> Models.Error : 422
+
+API.Op_createPullRequest --> API.RB_PullRequestCreate
+API.RB_PullRequestCreate --> Models.PullRequestCreate
+API.Op_createPullRequest --> Models.PullRequest : 201
+API.Op_createPullRequest --> Models.Error : 422
+
+API.Op_getPullRequest --> Models.PullRequest : 200
+API.Op_getPullRequest --> Models.Error : 404
+
+API.Op_updatePullRequest --> API.RB_PullRequestUpdate
+API.RB_PullRequestUpdate --> Models.PullRequestUpdate
+API.Op_updatePullRequest --> Models.PullRequest : 200
+API.Op_updatePullRequest --> Models.Error : 422
+
+API.Op_mergePullRequest --> API.RB_PullRequestMerge
+API.Op_mergePullRequest --> Models.Error : 409
+
+' ---------------------------
+' Layout helpers
+' ---------------------------
+API.Op_createRepositoryForAuthenticatedUser -[hidden]-> API.Op_getRepository
+API.Op_getRepository -[hidden]-> API.Op_updateRepository
+API.Op_updateRepository -[hidden]-> API.Op_listRepositoryIssues
+API.Op_listRepositoryIssues -[hidden]-> API.Op_createRepositoryIssue
+API.Op_createRepositoryIssue -[hidden]-> API.Op_getRepositoryIssue
+API.Op_getRepositoryIssue -[hidden]-> API.Op_updateRepositoryIssue
+API.Op_updateRepositoryIssue -[hidden]-> API.Op_createPullRequest
+API.Op_createPullRequest -[hidden]-> API.Op_getPullRequest
+API.Op_getPullRequest -[hidden]-> API.Op_updatePullRequest
+API.Op_updatePullRequest -[hidden]-> API.Op_mergePullRequest
+
+@enduml

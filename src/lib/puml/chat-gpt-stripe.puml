@@ -1,0 +1,202 @@
+@startuml
+
+top to bottom direction
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 80
+skinparam wrapWidth 200
+
+package "API" {
+
+  class Op_createPaymentIntent <<operation>> {
+    path: "/v1/payment_intents"
+    method: POST
+    operationId: createPaymentIntent
+  }
+
+  class Op_getPaymentIntent <<operation>> {
+    path: "/v1/payment_intents/{intent}"
+    method: GET
+    operationId: getPaymentIntent
+  }
+
+  class Op_updatePaymentIntent <<operation>> {
+    path: "/v1/payment_intents/{intent}"
+    method: PATCH
+    operationId: updatePaymentIntent
+  }
+
+  class Op_confirmPaymentIntent <<operation>> {
+    path: "/v1/payment_intents/{intent}/confirm"
+    method: POST
+    operationId: confirmPaymentIntent
+  }
+
+  class Op_createCustomer <<operation>> {
+    path: "/v1/customers"
+    method: POST
+    operationId: createCustomer
+  }
+
+  class Op_getCustomer <<operation>> {
+    path: "/v1/customers/{customer}"
+    method: GET
+    operationId: getCustomer
+  }
+
+  class Op_updateCustomer <<operation>> {
+    path: "/v1/customers/{customer}"
+    method: PATCH
+    operationId: updateCustomer
+  }
+
+  class Op_getCharge <<operation>> {
+    path: "/v1/charges/{charge}"
+    method: GET
+    operationId: getCharge
+  }
+
+  class Param_intent <<parameter>> {
+    intent: string {required}
+    in: path
+  }
+
+  class Param_customer <<parameter>> {
+    customer: string {required}
+    in: path
+  }
+
+  class Param_charge <<parameter>> {
+    charge: string {required}
+    in: path
+  }
+
+  class RB_PaymentIntentCreate <<requestBody>>
+  class RB_PaymentIntentUpdate <<requestBody>>
+  class RB_PaymentIntentConfirm <<requestBody>>
+  class RB_CustomerCreate <<requestBody>>
+  class RB_CustomerUpdate <<requestBody>>
+}
+
+package "Models" {
+
+  class PaymentIntent {
+    id: string {required}
+    amount: integer {required}
+    currency: string {required}
+    status: string {required}
+    capture_method: string {optional}
+    confirmation_method: string {optional}
+    customer: string {optional}
+    description: string {optional}
+  }
+
+  class PaymentIntentCreate {
+    amount: integer {required}
+    currency: string {required}
+    customer: string {optional}
+    payment_method: string {optional}
+    confirm: boolean {optional}
+    description: string {optional}
+  }
+
+  class PaymentIntentUpdate {
+    payment_method: string {optional}
+    description: string {optional}
+  }
+
+  class PaymentIntentConfirm {
+    payment_method: string {optional}
+    return_url: string {optional}
+  }
+
+  class Customer {
+    id: string {required}
+    email: string {optional}
+    name: string {optional}
+    phone: string {optional}
+  }
+
+  class CustomerCreate {
+    email: string {optional}
+    name: string {optional}
+    payment_method: string {optional}
+    phone: string {optional}
+  }
+
+  class CustomerUpdate {
+    email: string {optional}
+    name: string {optional}
+    payment_method: string {optional}
+    phone: string {optional}
+  }
+
+  class Charge {
+    id: string {required}
+    amount: integer {required}
+    currency: string {required}
+    status: string {required}
+    paid: boolean {optional}
+    customer: string {optional}
+    receipt_url: string {optional}
+  }
+
+  class Error {
+    type: string {required}
+    message: string {required}
+    code: string {optional}
+    param: string {optional}
+    decline_code: string {optional}
+  }
+}
+
+' ---------------------------
+' Operation → Request / Response links
+' ---------------------------
+
+API.Op_createPaymentIntent --> API.RB_PaymentIntentCreate
+API.RB_PaymentIntentCreate --> Models.PaymentIntentCreate
+API.Op_createPaymentIntent --> Models.PaymentIntent : 201
+API.Op_createPaymentIntent --> Models.Error : 400
+
+API.Op_getPaymentIntent --> Models.PaymentIntent : 200
+API.Op_getPaymentIntent --> Models.Error : 404
+
+API.Op_updatePaymentIntent --> API.RB_PaymentIntentUpdate
+API.RB_PaymentIntentUpdate --> Models.PaymentIntentUpdate
+API.Op_updatePaymentIntent --> Models.PaymentIntent : 200
+API.Op_updatePaymentIntent --> Models.Error : 400
+
+API.Op_confirmPaymentIntent --> API.RB_PaymentIntentConfirm
+API.RB_PaymentIntentConfirm --> Models.PaymentIntentConfirm
+API.Op_confirmPaymentIntent --> Models.PaymentIntent : 200
+API.Op_confirmPaymentIntent --> Models.Error : 402
+
+API.Op_createCustomer --> API.RB_CustomerCreate
+API.RB_CustomerCreate --> Models.CustomerCreate
+API.Op_createCustomer --> Models.Customer : 201
+API.Op_createCustomer --> Models.Error : 400
+
+API.Op_getCustomer --> Models.Customer : 200
+API.Op_getCustomer --> Models.Error : 404
+
+API.Op_updateCustomer --> API.RB_CustomerUpdate
+API.RB_CustomerUpdate --> Models.CustomerUpdate
+API.Op_updateCustomer --> Models.Customer : 200
+API.Op_updateCustomer --> Models.Error : 400
+
+API.Op_getCharge --> Models.Charge : 200
+API.Op_getCharge --> Models.Error : 404
+
+' ---------------------------
+' Layout helpers
+' ---------------------------
+API.Op_createPaymentIntent -[hidden]-> API.Op_getPaymentIntent
+API.Op_getPaymentIntent -[hidden]-> API.Op_updatePaymentIntent
+API.Op_updatePaymentIntent -[hidden]-> API.Op_confirmPaymentIntent
+API.Op_confirmPaymentIntent -[hidden]-> API.Op_createCustomer
+API.Op_createCustomer -[hidden]-> API.Op_getCustomer
+API.Op_getCustomer -[hidden]-> API.Op_updateCustomer
+API.Op_updateCustomer -[hidden]-> API.Op_getCharge
+
+@enduml
