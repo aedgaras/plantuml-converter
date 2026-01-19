@@ -39,7 +39,8 @@ function determineCategory(fileName: string, fallback: string): string {
 
   if (
     normalized.includes("simple") ||
-    normalized.includes("plantuml-to-openapi-flow")
+    normalized.includes("plantuml-to-openapi-flow") ||
+    normalized.includes("support-ticket")
   ) {
     return CATEGORY_MAP.simple;
   }
