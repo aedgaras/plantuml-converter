@@ -22,6 +22,7 @@ type MutableSchema = {
   properties: Record<string, OpenApiSchema>;
   required: Set<string>;
   description?: string;
+  methods?: UMLMethod[];
 };
 
 type DiagramCollections = {
@@ -161,7 +162,7 @@ function buildClassSchemas(
       interfaces,
       classes,
     );
-    appendMethodsDescription(draft, entity.methods);
+    appendMethodsMetadata(draft, entity.methods);
   }
   return classSchemas;
 }
@@ -471,8 +472,10 @@ function buildComponentSchemas(
 /**
  * Turns the draft structure into a plain OpenAPI object schema.
  */
-function buildSchemaObjectFromDraft(draft: MutableSchema): OpenApiObjectSchema {
-  return {
+function buildSchemaObjectFromDraft(
+  draft: MutableSchema,
+): OpenApiObjectSchema {
+  const schemaObject: OpenApiObjectSchema = {
     type: "object",
     properties:
       Object.keys(draft.properties).length > 0 ? draft.properties : undefined,
@@ -480,6 +483,16 @@ function buildSchemaObjectFromDraft(draft: MutableSchema): OpenApiObjectSchema {
       draft.required.size > 0 ? Array.from(draft.required.values()) : undefined,
     description: draft.description,
   };
+
+  if (draft.methods?.length) {
+    schemaObject["x-methods"] = draft.methods.map((method) => ({
+      name: method.name,
+      access: method.access,
+      returnType: method.returnType,
+    }));
+  }
+
+  return schemaObject;
 }
 
 /**
@@ -594,27 +607,14 @@ function mapAttributeType(
 }
 
 /**
- * Appends a short method signature list to the schema description.
+ * Preserves class methods so the resulting schema can expose them via extensions.
  */
-function appendMethodsDescription(draft: MutableSchema, methods: UMLMethod[]) {
+function appendMethodsMetadata(draft: MutableSchema, methods: UMLMethod[]) {
   if (!methods.length) {
     return;
   }
 
-  const summary = methods
-    .map((method) => {
-      const returnSuffix = method.returnType ? `: ${method.returnType}` : "";
-      return `${method.access} ${method.name}()${returnSuffix}`;
-    })
-    .join(", ");
-
-  if (!summary) {
-    return;
-  }
-
-  draft.description = draft.description
-    ? `${draft.description}\nMetodai: ${summary}`
-    : `Metodai: ${summary}`;
+  draft.methods = [...(draft.methods ?? []), ...methods];
 }
 
 /**

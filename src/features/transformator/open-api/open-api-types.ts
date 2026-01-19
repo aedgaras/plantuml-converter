@@ -19,11 +19,18 @@ export type OpenApiArraySchema = {
   description?: string;
 };
 
+export type OpenApiMethodExtension = {
+  name: string;
+  access: string;
+  returnType?: string;
+};
+
 export type OpenApiObjectSchema = {
   type: "object";
   properties?: Record<string, OpenApiSchema>;
   required?: string[];
   description?: string;
+  "x-methods"?: OpenApiMethodExtension[];
 };
 
 export type OpenApiAllOfSchema = {

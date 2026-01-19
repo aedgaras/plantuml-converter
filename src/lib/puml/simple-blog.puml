@@ -1,0 +1,28 @@
+@startuml
+
+class Post {
+  +id: UUID
+  +title: String
+  +body: Text
+  +publishedAt: datetime
+}
+
+class Author {
+  +id: UUID
+  +name: String
+}
+
+class Tag {
+  +name: String
+}
+
+class Comment {
+  +id: UUID
+  +authorName: String
+  +message: String
+}
+
+Post --> Author : author
+Post o-- "*" Tag : tags
+Post o-- "*" Comment : comments
+@enduml

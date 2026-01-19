@@ -1,0 +1,43 @@
+@startuml
+hide empty fields
+
+class Todo {
+  +id: UUID
+  +title: String
+  +completed: boolean
+}
+
+class SubTask {
+  +title: String
+  +done: boolean
+}
+
+class CreateTodoRequest <<RequestBody>> {
+  +title: String
+  +subTasks: SubTask[]
+}
+
+class TodoResponse <<Response>> {
+  +id: UUID
+  +title: String
+  +completed: boolean
+  +subTasks: SubTask[]
+}
+
+class TodoParams <<Parameter>> {
+  +completed: boolean
+}
+
+class ListTodos <<Path>> <<GET /todos>> {
+}
+
+class CreateTodo <<Path>> <<POST /todos>> {
+}
+
+Todo o-- "*" SubTask
+TodoResponse o-- "*" SubTask
+CreateTodo --> CreateTodoRequest
+CreateTodo --> TodoResponse : 201
+ListTodos --> TodoParams
+ListTodos --> TodoResponse : 200
+@enduml

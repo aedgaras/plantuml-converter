@@ -24,6 +24,29 @@ type FixtureFile = {
   category: string;
 };
 
+const CATEGORY_MAP = {
+  api: "API diagrams",
+  chatgpt: "ChatGPT diagrams",
+  simple: "Simple diagrams",
+} as const;
+
+function determineCategory(fileName: string, fallback: string): string {
+  const normalized = fileName.toLowerCase();
+
+  if (normalized.includes("chat-gpt") || normalized.includes("chatgtp")) {
+    return CATEGORY_MAP.chatgpt;
+  }
+
+  if (
+    normalized.includes("simple") ||
+    normalized.includes("plantuml-to-openapi-flow")
+  ) {
+    return CATEGORY_MAP.simple;
+  }
+
+  return CATEGORY_MAP.api ?? fallback;
+}
+
 function formatLabel(fileName: string): string {
   const withoutExt = fileName.replace(/\.(plant|puml)$/, "");
   const segments = withoutExt.split("-");
@@ -83,6 +106,10 @@ export async function GET() {
     );
     const fixtures = fixturesFromSources
       .flat()
+      .map((fixture) => ({
+        ...fixture,
+        category: determineCategory(fixture.fileName, fixture.category),
+      }))
       .sort((a, b) => a.label.localeCompare(b.label));
 
     return NextResponse.json(fixtures);

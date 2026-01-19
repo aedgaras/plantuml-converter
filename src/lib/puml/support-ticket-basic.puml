@@ -1,0 +1,42 @@
+@startuml
+hide empty members
+
+class Ticket {
+  +id: UUID
+  +subject: String
+  +status: String
+}
+
+class Comment {
+  +author: String
+  +message: String
+}
+
+class Agent {
+  +id: UUID
+  +name: String
+}
+
+class TicketResponse <<Response>> {
+  +ticket: Ticket
+  +comments: Comment[]
+  +assignedAgent: Agent
+}
+
+class TicketUpdateRequest <<RequestBody>> {
+  +status: String
+  +message: String
+}
+
+class TicketPath <<Path>> <<GET /tickets/{id}>> {
+}
+
+class UpdateTicketPath <<Path>> <<PATCH /tickets/{id}>> {
+}
+
+Ticket o-- "*" Comment
+Ticket --> Agent : assigned
+TicketPath --> TicketResponse : 200
+UpdateTicketPath --> TicketUpdateRequest
+UpdateTicketPath --> TicketResponse : 200
+@enduml

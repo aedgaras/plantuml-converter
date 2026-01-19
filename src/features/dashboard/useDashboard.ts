@@ -25,7 +25,12 @@ export const useDashboard = () => {
   const [selectedFixtureId, setSelectedFixtureId] = useState("");
   const { transform } = useTransformator();
   const fixturesByCategory = useMemo(() => {
-    const categoryOrder = ["Test cases", "API diagrams"];
+    const categoryOrder = [
+      "API diagrams",
+      "ChatGPT diagrams",
+      "Simple diagrams",
+      "Test cases",
+    ];
     const grouped = fixtures.reduce<Record<string, PlantUmlFixture[]>>(
       (acc, fixture) => {
         if (!acc[fixture.category]) {

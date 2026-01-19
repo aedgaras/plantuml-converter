@@ -154,12 +154,24 @@ describe("transformToOpenApi", () => {
 
     expect(schemas.Speakable).toEqual({
       type: "object",
-      description: "Metodai: public speak(): void",
+      "x-methods": [
+        {
+          name: "speak",
+          access: "public",
+          returnType: "void",
+        },
+      ],
     });
 
     expect(schemas.Person).toMatchObject({
       type: "object",
-      description: "Metodai: public greet(): void",
+      "x-methods": [
+        {
+          name: "greet",
+          access: "public",
+          returnType: "void",
+        },
+      ],
       properties: {
         id: { type: "string", format: "uuid" },
         name: { type: "string" },
