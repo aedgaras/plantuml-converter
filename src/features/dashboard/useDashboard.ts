@@ -1,4 +1,10 @@
-import { useState, useMemo, useCallback, useEffect, ChangeEvent } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  ChangeEvent,
+} from "react";
 import { DEFAULT_PLANTUML } from "../editor/utils";
 import { OpenApiDocument } from "../transformator/open-api/open-api-types";
 import { useTransformator } from "../transformator/use-transformator";
@@ -188,17 +194,22 @@ export const useDashboard = () => {
     updateOutputs(selected.content);
   };
 
-  const getOpenApiSchemaExportUrl = useCallback(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
+  const handleFileUpload = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
 
-    const encodedPlantUml = plantumlEncoder.encode(plantUmlCode);
-    const exportUrl = new URL("/api/openapi-schema", window.location.origin);
-    exportUrl.searchParams.set("uml", encodedPlantUml);
+      if (!file) {
+        return;
+      }
 
-    return exportUrl.toString();
-  }, [plantUmlCode]);
+      const fileContents = await file.text();
+      setSelectedFixtureId("");
+      setPlantUmlCode(fileContents);
+      updateOutputs(fileContents);
+    },
+    [updateOutputs],
+  );
 
   return {
     diagramUrl,
@@ -210,9 +221,9 @@ export const useDashboard = () => {
     handleFixtureChange,
     fixturesLoading,
     handleUmlChange,
+    handleFileUpload,
     fixturesByCategory,
     fixturesError,
-    getOpenApiSchemaExportUrl,
     plantUmlCode,
   };
 };

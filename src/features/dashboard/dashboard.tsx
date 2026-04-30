@@ -38,12 +38,12 @@ export default function Dashboard() {
     handleFixtureChange,
     fixturesLoading,
     handleUmlChange,
+    handleFileUpload,
     fixturesByCategory,
     fixturesError,
-    getOpenApiSchemaExportUrl,
     plantUmlCode,
   } = useDashboard();
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     EDITOR_PANEL_MIN_SIZE,
     editorPanelDefaultSize,
@@ -51,36 +51,22 @@ export default function Dashboard() {
     diagramPanelMaxSize,
     diagramPanelDefaultSize,
   } = useResiziblePanel(diagramSize);
-  const handleCopySchemaUrl = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(getOpenApiSchemaExportUrl());
-      setCopyState("copied");
-    } catch (error) {
-      console.error("Failed to copy schema export URL", error);
-      setCopyState("error");
-    }
-  }, [getOpenApiSchemaExportUrl]);
-
-  useEffect(() => {
-    if (copyState === "idle") {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setCopyState("idle");
-    }, 2000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [copyState]);
-
-  const copySchemaButtonLabel =
-    copyState === "copied"
-      ? "URL copied"
-      : copyState === "error"
-        ? "Copy failed"
-        : "Copy URL";
+  const handleUploadButtonClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+  const handleDownloadSchema = useCallback(() => {
+    const schemaBlob = new Blob([openApiSchema], {
+      type: "application/yaml;charset=utf-8",
+    });
+    const downloadUrl = URL.createObjectURL(schemaBlob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = "openapi-schema.yaml";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+  }, [openApiSchema]);
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
@@ -105,29 +91,46 @@ export default function Dashboard() {
                 title="PlantUML Input"
                 className="h-1/2 w-full border-r border-gray-200 dark:border-gray-700 md:h-full md:w-1/2"
                 headerActions={
-                  <div className="flex flex-col items-end gap-1">
-                    <select
-                      id="fixture-select"
-                      value={selectedFixtureId}
-                      onChange={handleFixtureChange}
-                      disabled={fixturesLoading}
-                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-                    >
-                      <option value="">
-                        {fixturesLoading
-                          ? "Loading..."
-                          : "Select PlantUML fixture"}
-                      </option>
-                      {fixturesByCategory.map(({ category, fixtures }) => (
-                        <optgroup key={category} label={category}>
-                          {fixtures.map((fixture) => (
-                            <option key={fixture.id} value={fixture.id}>
-                              {fixture.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".puml,text/plain"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUploadButtonClick}
+                      >
+                        Upload .puml
+                      </Button>
+                      <select
+                        id="fixture-select"
+                        value={selectedFixtureId}
+                        onChange={handleFixtureChange}
+                        disabled={fixturesLoading}
+                        className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                      >
+                        <option value="">
+                          {fixturesLoading
+                            ? "Loading..."
+                            : "Select PlantUML fixture"}
+                        </option>
+                        {fixturesByCategory.map(({ category, fixtures }) => (
+                          <optgroup key={category} label={category}>
+                            {fixtures.map((fixture) => (
+                              <option key={fixture.id} value={fixture.id}>
+                                {fixture.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
                     {fixturesError && (
                       <p className="text-xs text-red-500">{fixturesError}</p>
                     )}
@@ -146,14 +149,16 @@ export default function Dashboard() {
                 title="OpenAPI Schema"
                 className="h-1/2 w-full border-t border-gray-200 dark:border-gray-700 md:h-full md:w-1/2 md:border-t-0"
                 headerActions={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopySchemaUrl}
-                  >
-                    {copySchemaButtonLabel}
-                  </Button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadSchema}
+                    >
+                      Download YAML
+                    </Button>
+                  </div>
                 }
               >
                 <CodeEditor
@@ -201,7 +206,6 @@ export default function Dashboard() {
             </Panel>
           </div>
         </ResizablePanel>
-        
       </ResizablePanelGroup>
     </div>
   );
@@ -267,7 +271,10 @@ function DiagramPreview({
   const [zoomLevel, setZoomLevel] = useState(1);
   const clampZoom = useCallback(
     (nextZoom: number) =>
-      Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number.isFinite(nextZoom) ? nextZoom : 1)),
+      Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, Number.isFinite(nextZoom) ? nextZoom : 1),
+      ),
     [],
   );
   const adjustZoom = useCallback(
@@ -354,7 +361,7 @@ function DiagramPreview({
           tabIndex={-1}
           className={cn(
             "relative max-h-[80vh] min-h-[50vh] w-full overflow-auto rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950",
-            dialogScroll.isDragging ? "cursor-grabbing" : "cursor-grab"
+            dialogScroll.isDragging ? "cursor-grabbing" : "cursor-grab",
           )}
         >
           <img
@@ -447,7 +454,7 @@ function useDraggableScroll(): DraggableScroll {
       };
       setIsDragging(true);
     },
-    []
+    [],
   );
 
   const handlePointerMove = useCallback(
@@ -467,7 +474,7 @@ function useDraggableScroll(): DraggableScroll {
       element.scrollLeft = dragState.current.scrollLeft - deltaX;
       element.scrollTop = dragState.current.scrollTop - deltaY;
     },
-    [isDragging]
+    [isDragging],
   );
 
   const endDragging = useCallback(() => {
@@ -493,7 +500,7 @@ function useDraggableScroll(): DraggableScroll {
       event.preventDefault();
       endDragging();
     },
-    [endDragging, isDragging]
+    [endDragging, isDragging],
   );
 
   return {
