@@ -1,0 +1,487 @@
+openapi: 3.1.0
+info:
+  title: PlantUML Generated API
+  version: 1.0.0
+  description: OpenAPI schema generated from PlantUML diagram.
+paths:
+  /crx/packmgr/installstatus.jsp:
+    get:
+      summary: GET Get Install Status
+      tags:
+        - Install Status
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstallStatus"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/getInstallStatusDefault"
+  /libs/granite/security/truststore.json:
+    get:
+      summary: GET Get Truststore Info
+      tags:
+        - Truststore Info
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TruststoreInfo"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/getTruststoreInfoDefault"
+  /system/console/bundles/{name}.json:
+    get:
+      summary: GET Get Bundle Info
+      tags:
+        - Bundle Info
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BundleInfo"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/getBundleInfoDefault"
+  /system/console/configMgr/com.adobe.granite.auth.saml.SamlAuthenticationHandler:
+    get:
+      summary: GET Get Saml Configuration
+      tags:
+        - Saml Configuration Info
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SamlConfigurationInfo"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/getSamlConfigurationDefault"
+    post:
+      summary: POST Post Saml Configuration
+      tags:
+        - Saml Configuration Info
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SamlConfigurationInfo"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/postSamlConfigurationDefault"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SamlConfigurationSettingsBody"
+  /authorizables/{authorizableId}/keystore:
+    get:
+      summary: GET Get Authorizable Keystore
+      tags:
+        - Keystore Info
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeystoreInfo"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/getAuthorizableKeystoreDefault"
+    post:
+      summary: POST Post Authorizable Keystore
+      tags:
+        - Keystore Info
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeystoreInfo"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/postAuthorizableKeystoreDefault"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KeystoreUpload"
+  /authorizables/{authorizableId}/keystore/file:
+    get:
+      summary: GET Get Authorizable Keystore File
+      tags:
+        - Get Authorizable Keystore File200 Application Octet Stream
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref:
+                  "#/components/schemas/getAuthorizableKeystoreFile200ApplicationOctetStrea\
+                  m"
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/getAuthorizableKeystoreFileDefault"
+components:
+  schemas:
+    InstallStatusStatus:
+      type: object
+      properties:
+        finished:
+          type: boolean
+        itemCount:
+          type: integer
+    InstallStatus:
+      type: object
+      properties:
+        details:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: "#/components/schemas/InstallStatusStatus"
+    TruststoreInfo:
+      type: object
+      properties:
+        exists:
+          type: boolean
+        aliases:
+          type: array
+          items:
+            $ref: "#/components/schemas/TruststoreItems"
+    TruststoreItems:
+      type: object
+      properties:
+        alias:
+          type: string
+        entryType:
+          type: string
+        issuer:
+          type: string
+        subject:
+          type: string
+        notBefore:
+          type: string
+        notAfter:
+          type: string
+        serialNumber:
+          type: integer
+    BundleInfo:
+      type: object
+      properties:
+        status:
+          type: string
+        bundles:
+          type: array
+          items:
+            $ref: "#/components/schemas/BundleData"
+    BundleData:
+      type: object
+      properties:
+        id:
+          type: integer
+        symbolicName:
+          type: string
+        version:
+          type: string
+        category:
+          type: string
+        state:
+          type: string
+        stateRaw:
+          type: integer
+        fragment:
+          type: boolean
+        props:
+          type: array
+          items:
+            $ref: "#/components/schemas/BundleDataProp"
+    BundleDataProp:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    KeystoreInfo:
+      type: object
+      properties:
+        exists:
+          type: boolean
+        aliases:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeystoreItems"
+    KeystoreItems:
+      type: object
+      properties:
+        alias:
+          type: string
+        entryType:
+          type: string
+        algorithm:
+          type: string
+        format:
+          type: string
+        chain:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeystoreChainItems"
+    KeystoreChainItems:
+      type: object
+      properties:
+        issuer:
+          type: string
+        subject:
+          type: string
+        notBefore:
+          type: string
+        notAfter:
+          type: string
+        serialNumber:
+          type: integer
+    SamlConfigurationInfo:
+      type: object
+      properties:
+        pid:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        properties:
+          $ref: "#/components/schemas/SamlConfigurationProperties"
+    SamlConfigurationProperties:
+      type: object
+      properties:
+        serviceProviderEntityId:
+          type: string
+        idpUrl:
+          type: string
+        assertionConsumerServiceURL:
+          type: string
+        defaultRedirectUrl:
+          type: string
+        defaultGroups:
+          type: array
+          items:
+            type: string
+        synchronizeAttributes:
+          type: array
+          items:
+            type: string
+        userIDAttribute:
+          type: string
+        userIntermediatePath:
+          type: string
+        addGroupMemberships:
+          type: boolean
+        createUser:
+          type: boolean
+        useEncryption:
+          type: boolean
+        handleLogout:
+          type: boolean
+        logoutUrl:
+          type: string
+        nameIdFormat:
+          type: string
+        digestMethod:
+          type: string
+        signatureMethod:
+          type: string
+        spPrivateKeyAlias:
+          type: string
+        clockTolerance:
+          type: integer
+    SamlConfigurationSettings:
+      type: object
+      properties:
+        serviceProviderEntityId:
+          type: string
+        idpUrl:
+          type: string
+        assertionConsumerServiceURL:
+          type: string
+        defaultRedirectUrl:
+          type: string
+        defaultGroups:
+          type: array
+          items:
+            type: string
+        synchronizeAttributes:
+          type: array
+          items:
+            type: string
+        userIDAttribute:
+          type: string
+        userIntermediatePath:
+          type: string
+        addGroupMemberships:
+          type: boolean
+        createUser:
+          type: boolean
+        useEncryption:
+          type: boolean
+        handleLogout:
+          type: boolean
+        logoutUrl:
+          type: string
+        nameIdFormat:
+          type: string
+        digestMethod:
+          type: string
+        signatureMethod:
+          type: string
+        spPrivateKeyAlias:
+          type: string
+        clockTolerance:
+          type: integer
+      required:
+        - serviceProviderEntityId
+        - idpUrl
+    SamlConfigurationSettingsBody:
+      type: object
+      properties:
+        samlConfigurationSettings:
+          $ref: "#/components/schemas/SamlConfigurationSettings"
+      required:
+        - samlConfigurationSettings
+    KeystoreUpload:
+      type: object
+      properties:
+        keyStore:
+          type: array
+          items:
+            type: string
+        certChain:
+          type: array
+          items:
+            type: string
+        privateKey:
+          type: array
+          items:
+            type: string
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+        confirmPassword:
+          type: string
+      required:
+        - keyStore
+    getInstallStatusDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    getTruststoreInfoDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    getBundleInfoDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    getSamlConfigurationDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    postSamlConfigurationDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    getAuthorizableKeystoreDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    postAuthorizableKeystoreDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    getAuthorizableKeystoreFile200ApplicationOctetStream:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            type: string
+      required:
+        - value
+    getAuthorizableKeystoreFileDefault:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    ApiError:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+      required:
+        - message
+      description: Standard error payload.

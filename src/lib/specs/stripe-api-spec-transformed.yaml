@@ -1,0 +1,577 @@
+openapi: 3.1.0
+info:
+  title: PlantUML Generated API
+  version: 1.0.0
+  description: OpenAPI schema generated from PlantUML diagram.
+paths:
+  /v1/payment_intents:
+    post:
+      summary: POST Create Payment Intent
+      tags:
+        - Payment Intent
+      responses:
+        "201":
+          description: 201 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentIntentResponse"
+        "400":
+          description: 400 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentIntentCreateRequest"
+  /v1/payment_intents/{intent}:
+    get:
+      summary: GET Get Payment Intent
+      tags:
+        - Payment Intent
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentIntentResponse"
+        "404":
+          description: 404 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      summary: PATCH Update Payment Intent
+      tags:
+        - Payment Intent
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentIntentResponse"
+        "400":
+          description: 400 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentIntentUpdateRequest"
+  /v1/payment_intents/{intent}/confirm:
+    post:
+      summary: POST Confirm Payment Intent
+      tags:
+        - Payment Intent
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentIntentResponse"
+        "402":
+          description: 402 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentIntentConfirmRequest"
+  /v1/customers:
+    post:
+      summary: POST Create Customer
+      tags:
+        - Customer
+      responses:
+        "201":
+          description: 201 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerResponse"
+        "400":
+          description: 400 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerCreateRequest"
+  /v1/customers/{customer}:
+    get:
+      summary: GET Get Customer
+      tags:
+        - Customer
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerResponse"
+        "404":
+          description: 404 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      summary: PATCH Update Customer
+      tags:
+        - Customer
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerResponse"
+        "400":
+          description: 400 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdateRequest"
+  /v1/charges/{charge}:
+    get:
+      summary: GET Get Charge
+      tags:
+        - Charge
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeResponse"
+        "404":
+          description: 404 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  schemas:
+    PaymentIntent:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+        capture_method:
+          type: string
+        confirmation_method:
+          type: string
+        customer:
+          type: string
+        description:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        payment_method:
+          $ref: "#/components/schemas/PaymentMethod"
+        latest_charge:
+          $ref: "#/components/schemas/Charge"
+      required:
+        - id
+        - amount
+        - currency
+        - status
+        - metadata
+    PaymentIntentCreate:
+      type: object
+      properties:
+        amount:
+          type: integer
+        currency:
+          type: string
+        customer:
+          type: string
+        payment_method:
+          type: string
+        confirm:
+          type: boolean
+        description:
+          type: string
+      required:
+        - amount
+        - currency
+    PaymentIntentUpdate:
+      type: object
+      properties:
+        payment_method:
+          type: string
+        description:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - metadata
+    PaymentIntentConfirm:
+      type: object
+      properties:
+        payment_method:
+          type: string
+        return_url:
+          type: string
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        address:
+          $ref: "#/components/schemas/Address"
+        default_payment_method:
+          $ref: "#/components/schemas/PaymentMethod"
+        shipping:
+          $ref: "#/components/schemas/ShippingDetails"
+      required:
+        - id
+        - metadata
+    CustomerCreate:
+      type: object
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        payment_method:
+          type: string
+        phone:
+          type: string
+        address:
+          $ref: "#/components/schemas/Address"
+    CustomerUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        payment_method:
+          type: string
+        phone:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        address:
+          $ref: "#/components/schemas/Address"
+      required:
+        - metadata
+    Charge:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+        paid:
+          type: boolean
+        customer:
+          type: string
+        receipt_url:
+          type: string
+        payment_method_details:
+          $ref: "#/components/schemas/PaymentMethodDetails"
+      required:
+        - id
+        - amount
+        - currency
+        - status
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        billing_details:
+          $ref: "#/components/schemas/BillingDetails"
+        card:
+          $ref: "#/components/schemas/CardDetails"
+        sepa_debit:
+          $ref: "#/components/schemas/SepaDebitDetails"
+      required:
+        - id
+        - type
+    PaymentMethodDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        card:
+          $ref: "#/components/schemas/CardDetails"
+        sepa_debit:
+          $ref: "#/components/schemas/SepaDebitDetails"
+    BillingDetails:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          $ref: "#/components/schemas/Address"
+    CardDetails:
+      type: object
+      properties:
+        brand:
+          type: string
+        last4:
+          type: string
+        exp_month:
+          type: integer
+        exp_year:
+          type: integer
+        fingerprint:
+          type: string
+        funding:
+          type: string
+    SepaDebitDetails:
+      type: object
+      properties:
+        bank_code:
+          type: string
+        branch_code:
+          type: string
+        country:
+          type: string
+        fingerprint:
+          type: string
+        last4:
+          type: string
+    ShippingDetails:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          $ref: "#/components/schemas/Address"
+    Address:
+      type: object
+      properties:
+        line1:
+          type: string
+        line2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+    Error:
+      type: object
+      properties:
+        type:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        param:
+          type: string
+        decline_code:
+          type: string
+      required:
+        - type
+        - message
+    PaymentIntentCreateRequest:
+      type: object
+      properties:
+        paymentIntentCreate:
+          $ref: "#/components/schemas/PaymentIntentCreate"
+      required:
+        - paymentIntentCreate
+    PaymentIntentUpdateRequest:
+      type: object
+      properties:
+        paymentIntentUpdate:
+          $ref: "#/components/schemas/PaymentIntentUpdate"
+      required:
+        - paymentIntentUpdate
+    PaymentIntentConfirmRequest:
+      type: object
+      properties:
+        paymentIntentConfirm:
+          $ref: "#/components/schemas/PaymentIntentConfirm"
+      required:
+        - paymentIntentConfirm
+    CustomerCreateRequest:
+      type: object
+      properties:
+        customerCreate:
+          $ref: "#/components/schemas/CustomerCreate"
+      required:
+        - customerCreate
+    CustomerUpdateRequest:
+      type: object
+      properties:
+        customerUpdate:
+          $ref: "#/components/schemas/CustomerUpdate"
+      required:
+        - customerUpdate
+    PaymentIntentId:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    CustomerId:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    ChargeId:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    PaymentIntentResponse:
+      type: object
+      properties:
+        paymentIntent:
+          $ref: "#/components/schemas/PaymentIntent"
+      required:
+        - paymentIntent
+    CustomerResponse:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/Customer"
+      required:
+        - customer
+    ChargeResponse:
+      type: object
+      properties:
+        charge:
+          $ref: "#/components/schemas/Charge"
+      required:
+        - charge
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+      required:
+        - error
+    ApiError:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+      required:
+        - message
+      description: Standard error payload.

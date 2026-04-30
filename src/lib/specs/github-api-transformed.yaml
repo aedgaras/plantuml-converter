@@ -1,0 +1,757 @@
+openapi: 3.1.0
+info:
+  title: PlantUML Generated API
+  version: 1.0.0
+  description: OpenAPI schema generated from PlantUML diagram.
+paths:
+  /user/repos:
+    post:
+      summary: POST Create Repository For Authenticated User
+      tags:
+        - Repository
+      responses:
+        "201":
+          description: 201 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryResponse"
+        "422":
+          description: 422 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepositoryCreateBody"
+  /repos/{owner}/{repo}:
+    get:
+      summary: GET Get Repository
+      tags:
+        - Repository
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryResponse"
+        "404":
+          description: 404 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      summary: PATCH Update Repository
+      tags:
+        - Repository
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryResponse"
+        "422":
+          description: 422 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepositoryUpdateBody"
+  /repos/{owner}/{repo}/issues:
+    get:
+      summary: GET List Repository Issues
+      tags:
+        - List Repository Issues200
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/listRepositoryIssues200"
+        "404":
+          description: 404 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      summary: POST Create Repository Issue
+      tags:
+        - Issue
+      responses:
+        "201":
+          description: 201 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueResponse"
+        "422":
+          description: 422 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueCreateBody"
+  /repos/{owner}/{repo}/issues/{issue_number}:
+    get:
+      summary: GET Get Repository Issue
+      tags:
+        - Issue
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueResponse"
+        "404":
+          description: 404 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      summary: PATCH Update Repository Issue
+      tags:
+        - Issue
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueResponse"
+        "422":
+          description: 422 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueUpdateBody"
+  /repos/{owner}/{repo}/pulls:
+    post:
+      summary: POST Create Pull Request
+      tags:
+        - Pull Request
+      responses:
+        "201":
+          description: 201 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequestResponse"
+        "422":
+          description: 422 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PullRequestCreateBody"
+  /repos/{owner}/{repo}/pulls/{pull_number}:
+    get:
+      summary: GET Get Pull Request
+      tags:
+        - Pull Request
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequestResponse"
+        "404":
+          description: 404 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      summary: PATCH Update Pull Request
+      tags:
+        - Pull Request
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequestResponse"
+        "422":
+          description: 422 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PullRequestUpdateBody"
+  /repos/{owner}/{repo}/pulls/{pull_number}/merge:
+    put:
+      summary: PUT Merge Pull Request
+      tags:
+        - Merge Pull Request200
+      responses:
+        "200":
+          description: 200 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/mergePullRequest200"
+        "409":
+          description: 409 response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PullRequestMergeBody"
+components:
+  schemas:
+    Repository:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        full_name:
+          type: string
+        description:
+          type: string
+        private:
+          type: boolean
+        html_url:
+          type: string
+        default_branch:
+          type: string
+        visibility:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        owner:
+          $ref: "#/components/schemas/UserSummary"
+      required:
+        - id
+        - name
+        - full_name
+        - private
+    RepositoryCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        private:
+          type: boolean
+        visibility:
+          type: string
+        auto_init:
+          type: boolean
+        license_template:
+          type: string
+      required:
+        - name
+    RepositoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        private:
+          type: boolean
+        default_branch:
+          type: string
+        archived:
+          type: boolean
+        allow_merge_commit:
+          type: boolean
+        allow_squash_merge:
+          type: boolean
+        allow_rebase_merge:
+          type: boolean
+    Issue:
+      type: object
+      properties:
+        id:
+          type: integer
+        number:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        state:
+          type: string
+        locked:
+          type: boolean
+        comments:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        assignees:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Label"
+        milestone:
+          $ref: "#/components/schemas/Milestone"
+      required:
+        - id
+        - number
+        - title
+        - state
+    IssueCreate:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        assignees:
+          type: array
+          items:
+            type: string
+        labels:
+          type: array
+          items:
+            type: string
+        milestone:
+          type: integer
+      required:
+        - title
+    IssueUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        state:
+          type: string
+        assignees:
+          type: array
+          items:
+            type: string
+        labels:
+          type: array
+          items:
+            type: string
+        milestone:
+          type: integer
+    PullRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        number:
+          type: integer
+        state:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        draft:
+          type: boolean
+        merged:
+          type: boolean
+        mergeable:
+          type: boolean
+        commits:
+          type: integer
+        additions:
+          type: integer
+        deletions:
+          type: integer
+        changed_files:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+        merged_at:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        head:
+          $ref: "#/components/schemas/BranchRef"
+        base:
+          $ref: "#/components/schemas/BranchRef"
+        merged_by:
+          $ref: "#/components/schemas/UserSummary"
+      required:
+        - id
+        - number
+        - state
+        - title
+    PullRequestCreate:
+      type: object
+      properties:
+        title:
+          type: string
+        head:
+          type: string
+        base:
+          type: string
+        body:
+          type: string
+        maintainer_can_modify:
+          type: boolean
+        draft:
+          type: boolean
+      required:
+        - title
+        - head
+        - base
+    PullRequestUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        state:
+          type: string
+        base:
+          type: string
+        maintainer_can_modify:
+          type: boolean
+    BranchRef:
+      type: object
+      properties:
+        label:
+          type: string
+        ref:
+          type: string
+        sha:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        repo:
+          $ref: "#/components/schemas/Repository"
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        login:
+          type: string
+        avatar_url:
+          type: string
+        html_url:
+          type: string
+        type:
+          type: string
+    Label:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+        description:
+          type: string
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: integer
+        number:
+          type: integer
+        title:
+          type: string
+        state:
+          type: string
+        description:
+          type: string
+        due_on:
+          type: string
+          format: date-time
+    ErrorErrors:
+      type: object
+      properties:
+        resource:
+          type: string
+        field:
+          type: string
+        code:
+          type: string
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        documentation_url:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorErrors"
+      required:
+        - message
+    RepositoryCreateBody:
+      type: object
+      properties:
+        repositoryCreate:
+          $ref: "#/components/schemas/RepositoryCreate"
+      required:
+        - repositoryCreate
+    RepositoryUpdateBody:
+      type: object
+      properties:
+        repositoryUpdate:
+          $ref: "#/components/schemas/RepositoryUpdate"
+      required:
+        - repositoryUpdate
+    IssueCreateBody:
+      type: object
+      properties:
+        issueCreate:
+          $ref: "#/components/schemas/IssueCreate"
+      required:
+        - issueCreate
+    IssueUpdateBody:
+      type: object
+      properties:
+        issueUpdate:
+          $ref: "#/components/schemas/IssueUpdate"
+      required:
+        - issueUpdate
+    PullRequestCreateBody:
+      type: object
+      properties:
+        pullRequestCreate:
+          $ref: "#/components/schemas/PullRequestCreate"
+      required:
+        - pullRequestCreate
+    PullRequestUpdateBody:
+      type: object
+      properties:
+        pullRequestUpdate:
+          $ref: "#/components/schemas/PullRequestUpdate"
+      required:
+        - pullRequestUpdate
+    PullRequestMergeBody:
+      type: object
+      properties:
+        commit_title:
+          type: string
+        commit_message:
+          type: string
+        merge_method:
+          type: string
+    OwnerParam:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    RepoParam:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    IssueNumberParam:
+      type: object
+      properties:
+        value:
+          type: integer
+      required:
+        - value
+    PullNumberParam:
+      type: object
+      properties:
+        value:
+          type: integer
+      required:
+        - value
+    RepositoryResponse:
+      type: object
+      properties:
+        repository:
+          $ref: "#/components/schemas/Repository"
+      required:
+        - repository
+    IssueResponse:
+      type: object
+      properties:
+        issue:
+          $ref: "#/components/schemas/Issue"
+      required:
+        - issue
+    PullRequestResponse:
+      type: object
+      properties:
+        pullRequest:
+          $ref: "#/components/schemas/PullRequest"
+      required:
+        - pullRequest
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+      required:
+        - error
+    listRepositoryIssues200:
+      type: object
+      properties:
+        issue:
+          type: array
+          items:
+            $ref: "#/components/schemas/Issue"
+    mergePullRequest200:
+      type: object
+      properties:
+        merged:
+          type: boolean
+        sha:
+          type: string
+        message:
+          type: string
+    ApiError:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+      required:
+        - message
+      description: Standard error payload.
