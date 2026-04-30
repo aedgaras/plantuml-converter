@@ -3,9 +3,9 @@ import { DEFAULT_PLANTUML } from "../editor/utils";
 import { OpenApiDocument } from "../transformator/open-api/open-api-types";
 import { useTransformator } from "../transformator/use-transformator";
 import { buildOpenApiPlantUmlDiagram } from "./utils";
-import YAML from "yaml";
 import { PlantUmlFixture } from "./types";
 import plantumlEncoder from "plantuml-encoder";
+import { stringifyOpenApiDocument } from "../transformator/shared/shared-transformator";
 
 export const useDashboard = () => {
   const [plantUmlCode, setPlantUmlCode] = useState(DEFAULT_PLANTUML);
@@ -83,7 +83,7 @@ export const useDashboard = () => {
       setDiagramUrl(
         `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(uml)}`
       );
-      setOpenApiSchema(YAML.stringify(diagram));
+      setOpenApiSchema(stringifyOpenApiDocument(diagram));
       setOpenApiDiagram(diagram);
     },
     [transform]
@@ -188,6 +188,18 @@ export const useDashboard = () => {
     updateOutputs(selected.content);
   };
 
+  const getOpenApiSchemaExportUrl = useCallback(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    const encodedPlantUml = plantumlEncoder.encode(plantUmlCode);
+    const exportUrl = new URL("/api/openapi-schema", window.location.origin);
+    exportUrl.searchParams.set("uml", encodedPlantUml);
+
+    return exportUrl.toString();
+  }, [plantUmlCode]);
+
   return {
     diagramUrl,
     diagramSize,
@@ -200,6 +212,7 @@ export const useDashboard = () => {
     handleUmlChange,
     fixturesByCategory,
     fixturesError,
+    getOpenApiSchemaExportUrl,
     plantUmlCode,
   };
 };

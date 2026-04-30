@@ -40,8 +40,10 @@ export default function Dashboard() {
     handleUmlChange,
     fixturesByCategory,
     fixturesError,
+    getOpenApiSchemaExportUrl,
     plantUmlCode,
   } = useDashboard();
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const {
     EDITOR_PANEL_MIN_SIZE,
     editorPanelDefaultSize,
@@ -49,6 +51,36 @@ export default function Dashboard() {
     diagramPanelMaxSize,
     diagramPanelDefaultSize,
   } = useResiziblePanel(diagramSize);
+  const handleCopySchemaUrl = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(getOpenApiSchemaExportUrl());
+      setCopyState("copied");
+    } catch (error) {
+      console.error("Failed to copy schema export URL", error);
+      setCopyState("error");
+    }
+  }, [getOpenApiSchemaExportUrl]);
+
+  useEffect(() => {
+    if (copyState === "idle") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopyState("idle");
+    }, 2000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [copyState]);
+
+  const copySchemaButtonLabel =
+    copyState === "copied"
+      ? "URL copied"
+      : copyState === "error"
+        ? "Copy failed"
+        : "Copy URL";
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
@@ -113,6 +145,16 @@ export default function Dashboard() {
               <Panel
                 title="OpenAPI Schema"
                 className="h-1/2 w-full border-t border-gray-200 dark:border-gray-700 md:h-full md:w-1/2 md:border-t-0"
+                headerActions={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopySchemaUrl}
+                  >
+                    {copySchemaButtonLabel}
+                  </Button>
+                }
               >
                 <CodeEditor
                   value={openApiSchema}
