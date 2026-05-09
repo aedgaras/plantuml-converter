@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { transformPlantUML } from "../plant-uml/plant-uml-transformator";
-import { transformToOpenApi } from "./open-api-transformator";
+import {
+  transformToOpenApi,
+  transformToOpenApiResult,
+} from "./open-api-transformator";
 import type { OpenApiDocument } from "./open-api-types";
 import fs from "node:fs";
 import path from "node:path";
@@ -150,6 +153,10 @@ describe("transformToOpenApi", () => {
     expect(schemas.Gender).toEqual({
       type: "string",
       enum: ["MALE", "FEMALE"],
+      "x-source": {
+        kind: "enum",
+        name: "Gender",
+      },
     });
 
     expect(schemas.Speakable).toEqual({
@@ -161,6 +168,10 @@ describe("transformToOpenApi", () => {
           returnType: "void",
         },
       ],
+      "x-source": {
+        kind: "class",
+        name: "Speakable",
+      },
     });
 
     expect(schemas.Person).toMatchObject({
@@ -194,9 +205,20 @@ describe("transformToOpenApi", () => {
     expect(schemas.Address).toEqual({
       type: "object",
       properties: {
-        street: { type: "string" },
+        street: {
+          type: "string",
+          "x-source": {
+            kind: "attribute",
+            name: "Address",
+            member: "street",
+          },
+        },
       },
       required: ["street"],
+      "x-source": {
+        kind: "class",
+        name: "Address",
+      },
     });
 
     expect(schemas.Employee).toEqual({
@@ -205,9 +227,20 @@ describe("transformToOpenApi", () => {
         {
           type: "object",
           properties: {
-            salary: { type: "number" },
+            salary: {
+              type: "number",
+              "x-source": {
+                kind: "attribute",
+                name: "Employee",
+                member: "salary",
+              },
+            },
           },
           required: ["salary"],
+          "x-source": {
+            kind: "class",
+            name: "Employee",
+          },
         },
       ],
     });
@@ -233,19 +266,34 @@ describe("transformToOpenApi", () => {
     ]);
 
     const orderSchema = doc.components.schemas.Order as any;
-    expect(orderSchema.properties.buyer).toEqual({
+    expect(orderSchema.properties.buyer).toMatchObject({
       $ref: "#/components/schemas/Customer",
+      "x-source": {
+        kind: "relation",
+        name: "Order",
+        member: "buyer",
+      },
     });
     expect(orderSchema.required).toContain("buyer");
-    expect(orderSchema.properties.seller_accounts).toEqual({
+    expect(orderSchema.properties.seller_accounts).toMatchObject({
       type: "array",
       items: { $ref: "#/components/schemas/Customer" },
+      "x-source": {
+        kind: "relation",
+        name: "Order",
+        member: "seller_accounts",
+      },
     });
     expect(orderSchema.required ?? []).not.toContain("seller_accounts");
 
     const customerSchema = doc.components.schemas.Customer as any;
-    expect(customerSchema.properties.default_payment_method).toEqual({
+    expect(customerSchema.properties.default_payment_method).toMatchObject({
       $ref: "#/components/schemas/PaymentMethod",
+      "x-source": {
+        kind: "relation",
+        name: "Customer",
+        member: "default_payment_method",
+      },
     });
   });
 
@@ -261,8 +309,13 @@ describe("transformToOpenApi", () => {
     ]);
 
     const installStatus = doc.components.schemas.InstallStatus as any;
-    expect(installStatus.properties.status).toEqual({
+    expect(installStatus.properties.status).toMatchObject({
       $ref: "#/components/schemas/InstallStatusStatus",
+      "x-source": {
+        kind: "relation",
+        name: "InstallStatus",
+        member: "status",
+      },
     });
     expect(installStatus.required ?? []).not.toContain("status");
   });
@@ -416,6 +469,193 @@ describe("transformToOpenApi", () => {
     const detailPath = doc.paths["/orders/{orderId}"] as any;
     expect(detailPath.get).toBeDefined();
     expect(detailPath.post).toBeUndefined();
+    expect(detailPath.get.parameters).toEqual([
+      {
+        name: "orderId",
+        in: "path",
+        required: true,
+        schema: { type: "string" },
+        description: "Order Id path parameter",
+        "x-source": {
+          kind: "parameter",
+          name: "orderId",
+        },
+      },
+    ]);
     expect(detailPath.get.responses["200"].content).toBeDefined();
+  });
+
+  it("maps supported field annotations into OpenAPI schema constraints", () => {
+    const doc = toOpenApi([
+      "class Customer {",
+      '  +email: string {description: "Primary contact email"} {pattern=^[^@]+@[^@]+$} {example: "user@example.com"}',
+      "  +age: int {minimum: 18} {maximum: 120}",
+      "  +nickname: string {nullable} {optional}",
+      "}",
+    ]);
+
+    expect(doc.components.schemas.Customer).toMatchObject({
+      type: "object",
+      properties: {
+        email: {
+          type: "string",
+          description: "Primary contact email",
+          pattern: "^[^@]+@[^@]+$",
+          example: "user@example.com",
+          "x-source": {
+            kind: "attribute",
+            name: "Customer",
+            member: "email",
+          },
+        },
+        age: {
+          type: "integer",
+          format: "int32",
+          minimum: 18,
+          maximum: 120,
+          "x-source": {
+            kind: "attribute",
+            name: "Customer",
+            member: "age",
+          },
+        },
+        nickname: {
+          type: "string",
+          nullable: true,
+          "x-source": {
+            kind: "attribute",
+            name: "Customer",
+            member: "nickname",
+          },
+        },
+      },
+      "x-source": {
+        kind: "class",
+        name: "Customer",
+      },
+    });
+    expect((doc.components.schemas.Customer as any).required).toEqual([
+      "age",
+      "email",
+    ]);
+  });
+
+  it("builds explicit query and path parameters from Parameter stereotypes", () => {
+    const doc = toOpenApi([
+      'class "ListOrdersPage" <<Parameter query page>> {',
+      "  +value: int {minimum: 1} {description: \"Page number\"}",
+      "}",
+      'class "OrderIdParam" <<Parameter path orderId>> {',
+      "  +value: uuid {description: \"Order identifier\"}",
+      "}",
+      'class "OrderResponse" <<Response>> {}',
+      'class "listOrders" <<Path>> <<GET /orders/{orderId}>> {}',
+      '"listOrders" --> "0..1" "ListOrdersPage"',
+      '"listOrders" --> "1" "OrderIdParam"',
+      '"listOrders" ..> "1" "OrderResponse" : "200"',
+    ]);
+
+    expect(doc.paths["/orders/{orderId}"]?.get?.parameters).toEqual([
+      {
+        name: "orderId",
+        in: "path",
+        required: true,
+        schema: {
+          type: "string",
+          format: "uuid",
+          description: "Order identifier",
+        },
+        description: "Order identifier",
+        "x-source": {
+          kind: "parameter",
+          name: "OrderIdParam",
+        },
+      },
+      {
+        name: "page",
+        in: "query",
+        required: false,
+        schema: {
+          type: "integer",
+          format: "int32",
+          minimum: 1,
+          description: "Page number",
+        },
+        description: "Page number",
+        "x-source": {
+          kind: "parameter",
+          name: "ListOrdersPage",
+        },
+      },
+    ]);
+  });
+
+  it("returns diagnostics, canonical ordering, and strict mode failures", () => {
+    const result = transformToOpenApiResult(
+      transformPlantUML(
+        [
+          'class "Customer" <<Entity>> {',
+          '  +aliases: string[] {minItems: 1} {maxItems: 10}',
+          '  +status: string {deprecated} {default: "active"} {unsupportedThing}',
+          "}",
+          'class "Order" {}',
+          'class "MissingPath" <<Path>> <<GET /customers/{customerId}>> {}',
+          'class "MissingPathDuplicate" <<Path>> <<GET /customers/{customerId}>> {}',
+          '"Customer" --> "many" "Order"',
+          '"Customer" --> "Ghost"',
+        ].join("\n"),
+      ),
+    );
+
+    expect(result.document.paths).toHaveProperty("/customers/{customerId}");
+    expect(result.document.components.schemas.Customer).toMatchObject({
+      properties: {
+        aliases: {
+          type: "array",
+          minItems: 1,
+          maxItems: 10,
+        },
+        status: {
+          type: "string",
+          deprecated: true,
+          default: "active",
+        },
+      },
+      required: ["aliases", "status"],
+    });
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "duplicate-path-operation",
+          level: "error",
+        }),
+        expect.objectContaining({
+          code: "unsupported-annotation",
+          level: "warning",
+        }),
+        expect.objectContaining({
+          code: "unsupported-stereotype",
+          level: "warning",
+        }),
+        expect.objectContaining({
+          code: "custom-cardinality",
+          level: "warning",
+        }),
+        expect.objectContaining({
+          code: "unresolved-relation-target",
+          level: "warning",
+        }),
+      ]),
+    );
+
+    expect(() =>
+      transformToOpenApi(transformPlantUML([
+        'class "Customer" <<Entity>> {}',
+        'class "MissingPath" <<Path>> <<GET /customers>> {}',
+        'class "MissingPathDuplicate" <<Path>> <<GET /customers>> {}',
+      ].join("\n")), {
+        mode: "strict",
+      }),
+    ).toThrow(/duplicate-path-operation/);
   });
 });

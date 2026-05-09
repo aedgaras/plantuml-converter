@@ -1,7 +1,13 @@
 import { RELATION_SYMBOLS } from "../../../lib/utils";
 import {
+  normalizeComponentName,
+  normalizePropertyName,
+} from "../shared/naming-rules";
+import { applyDiagramRules } from "../shared/transform-rules";
+import {
   AccessModifier,
   UMLAttribute,
+  UMLAttributeAnnotations,
   UMLCardinality,
   UMLClassLike,
   UMLClassType,
@@ -25,12 +31,12 @@ export function transformPlantUML(umlText: string): UMLDiagram {
   const enums = parseEnumDeclarations(normalizedText);
   const relations = parseRelations(normalizedText);
 
-  return {
+  return applyDiagramRules({
     classes,
     interfaces,
     enums,
     relations,
-  };
+  });
 }
 
 /**
@@ -60,7 +66,7 @@ function parseClassLikeDeclarations(
 
     const entity = buildClassLikeEntity(
       rawType,
-      block.name,
+      block.rawName,
       block.body,
       block.stereotypes,
     );
@@ -85,10 +91,11 @@ function buildClassLikeEntity(
   body: string,
   stereotypes: string[],
 ): UMLClassLike {
-  const normalizedName = normalizeIdentifier(name);
+  const normalizedName = normalizeComponentName(name);
   const { attributes, methods } = parseClassMembers(body);
   return {
     name: normalizedName,
+    rawName: name,
     type,
     attributes,
     methods,
@@ -140,12 +147,9 @@ function parseClassMember(line: string): ParsedMember | undefined {
     return undefined;
   }
 
-  const optional = /\{O\}\s*$/i.test(clean);
-  if (optional) {
-    clean = clean.replace(/\{O\}\s*$/i, "").trim();
-  }
-
-  clean = stripMemberDecorators(clean);
+  const { value: undecorated, annotations, optional, unsupportedTokens } =
+    extractMemberAnnotations(clean);
+  clean = undecorated;
   if (!clean) {
     return undefined;
   }
@@ -172,7 +176,12 @@ function parseClassMember(line: string): ParsedMember | undefined {
     const [, name, returnType] = methodMatch;
     return {
       kind: "method",
-      value: { name, returnType: returnType?.trim(), access },
+      value: {
+        name: normalizePropertyName(name),
+        rawName: name,
+        returnType: returnType?.trim(),
+        access,
+      },
     };
   }
 
@@ -189,13 +198,22 @@ function parseClassMember(line: string): ParsedMember | undefined {
   }
 
   const attribute: UMLAttribute = {
-    name,
+    name: normalizePropertyName(name),
+    rawName: name,
     type: type || undefined,
     access,
   };
 
   if (optional) {
     attribute.optional = true;
+  }
+
+  if (Object.keys(annotations).length > 0) {
+    attribute.annotations = annotations;
+  }
+
+  if (unsupportedTokens.length > 0) {
+    attribute.unsupportedAnnotations = unsupportedTokens;
   }
 
   return {
@@ -216,6 +234,191 @@ function stripMemberDecorators(value: string): string {
   return result;
 }
 
+function extractMemberAnnotations(value: string): {
+  value: string;
+  annotations: UMLAttributeAnnotations;
+  optional: boolean;
+  unsupportedTokens: string[];
+} {
+  const annotations: UMLAttributeAnnotations = {};
+  let optional = false;
+  const unsupportedTokens: string[] = [];
+  let remaining = value.trim();
+
+  while (true) {
+    const trailingMatch = remaining.match(/\{([^{}]+)\}\s*$/);
+    if (!trailingMatch) {
+      break;
+    }
+
+    const token = trailingMatch[1].trim();
+    const parsed = parseAnnotationToken(token);
+
+    if (parsed.optional) {
+      optional = true;
+    }
+
+    Object.assign(annotations, parsed.annotations);
+    if (parsed.unsupported) {
+      unsupportedTokens.push(parsed.unsupported);
+    }
+    remaining = remaining.slice(0, trailingMatch.index).trimEnd();
+  }
+
+  remaining = stripMemberDecorators(remaining);
+
+  return {
+    value: remaining.trim(),
+    annotations,
+    optional,
+    unsupportedTokens,
+  };
+}
+
+function parseAnnotationToken(token: string): {
+  annotations: UMLAttributeAnnotations;
+  optional: boolean;
+  unsupported?: string;
+} {
+  if (!token) {
+    return { annotations: {}, optional: false };
+  }
+
+  if (/^o$/i.test(token) || /^optional$/i.test(token)) {
+    return { annotations: {}, optional: true };
+  }
+
+  if (/^nullable$/i.test(token)) {
+    return { annotations: { nullable: true }, optional: false };
+  }
+
+  if (/^deprecated$/i.test(token)) {
+    return { annotations: { deprecated: true }, optional: false };
+  }
+
+  if (/^readonly$/i.test(token)) {
+    return { annotations: { readOnly: true }, optional: false };
+  }
+
+  if (/^writeonly$/i.test(token)) {
+    return { annotations: { writeOnly: true }, optional: false };
+  }
+
+  const separatorIndex = findAnnotationSeparator(token);
+  if (separatorIndex === -1) {
+    return { annotations: {}, optional: false, unsupported: token };
+  }
+
+  const key = token.slice(0, separatorIndex).trim().toLowerCase();
+  const rawValue = token.slice(separatorIndex + 1).trim();
+  const value = stripQuotedValue(rawValue);
+
+  switch (key) {
+    case "description":
+      return value
+        ? { annotations: { description: value }, optional: false }
+        : { annotations: {}, optional: false };
+    case "example": {
+      const parsedValue = parseExampleValue(value);
+      return parsedValue !== undefined
+        ? { annotations: { example: parsedValue }, optional: false }
+        : { annotations: {}, optional: false };
+    }
+    case "pattern":
+      return value
+        ? { annotations: { pattern: value }, optional: false }
+        : { annotations: {}, optional: false };
+    case "minimum": {
+      const minimum = Number(value);
+      return Number.isFinite(minimum)
+        ? { annotations: { minimum }, optional: false }
+        : { annotations: {}, optional: false };
+    }
+    case "maximum": {
+      const maximum = Number(value);
+      return Number.isFinite(maximum)
+        ? { annotations: { maximum }, optional: false }
+        : { annotations: {}, optional: false, unsupported: token };
+    }
+    case "default": {
+      const parsedValue = parseExampleValue(value);
+      return parsedValue !== undefined
+        ? { annotations: { default: parsedValue }, optional: false }
+        : { annotations: {}, optional: false, unsupported: token };
+    }
+    case "minlength": {
+      const minLength = Number(value);
+      return Number.isFinite(minLength)
+        ? { annotations: { minLength }, optional: false }
+        : { annotations: {}, optional: false, unsupported: token };
+    }
+    case "maxlength": {
+      const maxLength = Number(value);
+      return Number.isFinite(maxLength)
+        ? { annotations: { maxLength }, optional: false }
+        : { annotations: {}, optional: false, unsupported: token };
+    }
+    case "minitems": {
+      const minItems = Number(value);
+      return Number.isFinite(minItems)
+        ? { annotations: { minItems }, optional: false }
+        : { annotations: {}, optional: false, unsupported: token };
+    }
+    case "maxitems": {
+      const maxItems = Number(value);
+      return Number.isFinite(maxItems)
+        ? { annotations: { maxItems }, optional: false }
+        : { annotations: {}, optional: false, unsupported: token };
+    }
+    default:
+      return { annotations: {}, optional: false, unsupported: token };
+  }
+}
+
+function findAnnotationSeparator(token: string): number {
+  const colonIndex = token.indexOf(":");
+  const equalsIndex = token.indexOf("=");
+
+  if (colonIndex === -1) {
+    return equalsIndex;
+  }
+
+  if (equalsIndex === -1) {
+    return colonIndex;
+  }
+
+  return Math.min(colonIndex, equalsIndex);
+}
+
+function stripQuotedValue(value: string): string {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+function parseExampleValue(
+  value: string,
+): UMLAttributeAnnotations["example"] | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (/^(true|false)$/i.test(value)) {
+    return value.toLowerCase() === "true";
+  }
+
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue) && /^-?\d+(\.\d+)?$/.test(value)) {
+    return numericValue;
+  }
+
+  return value;
+}
+
 /**
  * Parses enums declared in the UML diagram.
  */
@@ -234,7 +437,7 @@ function parseEnumDeclarations(umlText: string): UMLEnum[] {
       .split("\n")
       .map((value) => value.trim())
       .filter((value) => value.length > 0);
-    enums.push({ name: block.name, values });
+    enums.push({ name: block.name, rawName: block.rawName, values });
     enumPattern.lastIndex = block.endIndex + 1;
   }
 
@@ -297,12 +500,15 @@ function parseRelationLine(line: string): UMLRelation | undefined {
 
   return {
     from: fromParsed.name,
+    rawFrom: fromParsed.rawName,
     to: toParsed.name,
+    rawTo: toParsed.rawName,
     type: mapRelation(symbol),
     fromCardinality,
     toCardinality,
     cardinality: toCardinality,
     label: relationLabel,
+    rawLabel: relationLabel,
   };
 }
 
@@ -380,7 +586,7 @@ function isCardinalityValue(token: string): boolean {
  */
 function parseRelationEndpoint(
   segment: string,
-): { name: string; cardinalityRaw?: string } | undefined {
+): { name: string; rawName: string; cardinalityRaw?: string } | undefined {
   const tokens =
     segment
       .match(/"[^"]+"|\S+/g)
@@ -416,7 +622,11 @@ function parseRelationEndpoint(
     return undefined;
   }
 
-  return { name: normalizeIdentifier(name), cardinalityRaw: cardinality };
+  return {
+    name: normalizeComponentName(name),
+    rawName: name,
+    cardinalityRaw: cardinality,
+  };
 }
 
 /**
@@ -489,6 +699,7 @@ function parseCardinality(raw?: string): UMLCardinality | undefined {
 
 type NamedBlock = {
   name: string;
+  rawName: string;
   body: string;
   endIndex: number;
   stereotypes: string[];
@@ -515,7 +726,8 @@ function extractNamedBlock(
   }
 
   return {
-    name: normalizeIdentifier(name),
+    name: normalizeComponentName(name),
+    rawName: name,
     body: text.slice(openIndex + 1, closeIndex),
     endIndex: closeIndex,
     stereotypes,
@@ -687,30 +899,4 @@ function cleanRelationLabel(value?: string): string | undefined {
     return undefined;
   }
   return trimmed.replace(/^"+|"+$/g, "").trim();
-}
-
-function normalizeIdentifier(name: string): string {
-  const trimmed = name.trim().replace(/^"+|"+$/g, "");
-  if (!trimmed) {
-    return "";
-  }
-
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  const tokens = trimmed.split(/[^A-Za-z0-9]+/).filter(Boolean);
-  if (tokens.length === 0) {
-    return trimmed.replace(/\s+/g, "");
-  }
-
-  const [first, ...rest] = tokens;
-  return [first, ...rest.map(capitalizeToken)].join("");
-}
-
-function capitalizeToken(value: string): string {
-  if (!value) {
-    return value;
-  }
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }

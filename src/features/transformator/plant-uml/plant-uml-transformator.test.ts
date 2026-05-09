@@ -121,7 +121,7 @@ describe("transformator", () => {
       const employee = getClass(diagram, "Employee");
       expect(employee).toBeTruthy();
       expect(employee?.attributes).toEqual([
-        { name: "id", type: "Int", access: "public" },
+        { name: "id", rawName: "id", type: "Int", access: "public" },
       ]);
     });
 
@@ -135,7 +135,12 @@ describe("transformator", () => {
       const employee = getClass(diagram, "Employee");
       expect(employee).toBeTruthy();
       expect(employee?.methods).toEqual([
-        { name: "hire", returnType: "void", access: "public" },
+        {
+          name: "hire",
+          rawName: "hire",
+          returnType: "void",
+          access: "public",
+        },
       ]);
     });
 
@@ -145,7 +150,7 @@ describe("transformator", () => {
       const person = getClass(diagram, "Person");
       expect(person).toBeTruthy();
       expect(person?.attributes).toEqual([
-        { name: "name", type: "String", access: "public" },
+        { name: "name", rawName: "name", type: "String", access: "public" },
       ]);
     });
 
@@ -155,7 +160,7 @@ describe("transformator", () => {
       const person = getClass(diagram, "Person");
       expect(person).toBeTruthy();
       expect(person?.attributes).toEqual([
-        { name: "ssn", type: "String", access: "private" },
+        { name: "ssn", rawName: "ssn", type: "String", access: "private" },
       ]);
     });
 
@@ -165,7 +170,12 @@ describe("transformator", () => {
       const person = getClass(diagram, "Person");
       expect(person).toBeTruthy();
       expect(person?.attributes).toEqual([
-        { name: "address", type: "String", access: "protected" },
+        {
+          name: "address",
+          rawName: "address",
+          type: "String",
+          access: "protected",
+        },
       ]);
     });
 
@@ -175,7 +185,12 @@ describe("transformator", () => {
       const person = getClass(diagram, "Person");
       expect(person).toBeTruthy();
       expect(person?.attributes).toEqual([
-        { name: "metadata", type: "String", access: "package" },
+        {
+          name: "metadata",
+          rawName: "metadata",
+          type: "String",
+          access: "package",
+        },
       ]);
     });
   });
@@ -191,10 +206,12 @@ describe("transformator", () => {
 
       const paymentIntent = getClass(diagram, "PaymentIntent");
       expect(paymentIntent).toBeTruthy();
+      expect(paymentIntent?.rawName).toBe("PaymentIntent");
       expect(paymentIntent?.attributes).toEqual([
-        { name: "id", type: "string", access: "public" },
+        { name: "id", rawName: "id", type: "string", access: "public" },
         {
           name: "metadata",
+          rawName: "metadata",
           type: "string -> string",
           access: "public",
           optional: true,
@@ -209,6 +226,9 @@ describe("transformator", () => {
       ]);
 
       expect(getClass(diagram, "getSamlConfigurationDefault")).toBeTruthy();
+      expect(getClass(diagram, "getSamlConfigurationDefault")?.rawName).toBe(
+        "getSamlConfiguration default",
+      );
       expect(
         getClass(
           diagram,
@@ -227,8 +247,82 @@ describe("transformator", () => {
       const relation = getRelation(diagram, "PaymentIntent", "PaymentMethod");
       expect(relation).toMatchObject({
         type: "association",
+        label: "default_payment_method",
+        rawLabel: "default_payment_method",
         toCardinality: { type: "range", min: 0, max: 1 },
       });
+    });
+
+    it("parses supported field annotations into attribute metadata", () => {
+      const diagram = parseUml([
+        'class "Customer" {',
+        '  +email: string {description: "Primary contact email"} {pattern=^[^@]+@[^@]+$} {example: "user@example.com"}',
+        "  +age: int {minimum: 18} {maximum: 120} {default: 21}",
+        "  +nickname: string {nullable} {optional} {deprecated}",
+        "  +aliases: string[] {readOnly} {minItems: 1} {maxItems: 10}",
+        "  +password: string {writeOnly} {minLength: 8} {maxLength: 64} {unknownFlag}",
+        "}",
+      ]);
+
+      const customer = getClass(diagram, "Customer");
+      expect(customer?.attributes).toEqual([
+        {
+          name: "email",
+          rawName: "email",
+          type: "string",
+          access: "public",
+          annotations: {
+            description: "Primary contact email",
+            pattern: "^[^@]+@[^@]+$",
+            example: "user@example.com",
+          },
+        },
+        {
+          name: "age",
+          rawName: "age",
+          type: "int",
+          access: "public",
+          annotations: {
+            minimum: 18,
+            maximum: 120,
+            default: 21,
+          },
+        },
+        {
+          name: "nickname",
+          rawName: "nickname",
+          type: "string",
+          access: "public",
+          optional: true,
+          annotations: {
+            nullable: true,
+            deprecated: true,
+          },
+        },
+        {
+          name: "aliases",
+          rawName: "aliases",
+          type: "string[]",
+          access: "public",
+          annotations: {
+            readOnly: true,
+            minItems: 1,
+            maxItems: 10,
+          },
+        },
+        {
+          name: "password",
+          rawName: "password",
+          type: "string",
+          access: "public",
+          annotations: {
+            writeOnly: true,
+            minLength: 8,
+            maxLength: 64,
+          },
+          unsupportedAnnotations: ["unknownFlag"],
+        },
+      ]);
     });
   });
 

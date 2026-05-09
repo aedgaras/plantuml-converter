@@ -1,5 +1,6 @@
 import {
   UMLAttribute,
+  UMLAttributeAnnotations,
   UMLCardinality,
   UMLClassLike,
   UMLDiagram,
@@ -7,6 +8,19 @@ import {
   UMLMethod,
   UMLRelation,
 } from "../plant-uml/plant-uml-types";
+import {
+  humanizeName,
+  normalizeOperationId,
+  normalizePathSegment,
+  normalizePropertyName,
+  normalizeRoutePath,
+} from "../shared/naming-rules";
+import {
+  TransformDiagnostic,
+  TransformOptions,
+  TransformResult,
+} from "../shared/transform-diagnostics";
+import { applyDiagramRules } from "../shared/transform-rules";
 import {
   OpenApiArraySchema,
   OpenApiDocument,
@@ -19,6 +33,7 @@ import {
 } from "./open-api-types";
 
 type MutableSchema = {
+  name: string;
   properties: Record<string, OpenApiSchema>;
   required: Set<string>;
   description?: string;
@@ -30,6 +45,21 @@ type DiagramCollections = {
   interfaces: UMLClassLike[];
   enums: UMLEnum[];
   relations: UMLRelation[];
+};
+
+type ParameterLocation = "path" | "query" | "header" | "cookie";
+
+type ParameterDefinition = {
+  name: string;
+  in: ParameterLocation;
+  required: boolean;
+  schema: OpenApiSchema;
+  description?: string;
+  sourceName?: string;
+};
+
+type TransformContext = {
+  diagnostics: TransformDiagnostic[];
 };
 
 const PRIMITIVE_TYPE_MAP: Record<
@@ -62,8 +92,22 @@ const ERROR_SCHEMA_NAME = "ApiError";
  */
 export function transformToOpenApi(
   plantUMLDiagram: UMLDiagram,
+  options?: TransformOptions,
 ): OpenApiDocument {
-  const collections = extractDiagramCollections(plantUMLDiagram);
+  return transformToOpenApiResult(plantUMLDiagram, options).document;
+}
+
+export function transformToOpenApiResult(
+  plantUMLDiagram: UMLDiagram,
+  options: TransformOptions = {},
+): TransformResult<OpenApiDocument> {
+  const context: TransformContext = {
+    diagnostics: [],
+  };
+  const collections = extractDiagramCollections(
+    applyDiagramRules(plantUMLDiagram),
+  );
+  collectDiagramDiagnostics(collections, context);
   const domainClasses = collections.classes.filter(
     (entity) => !hasStereotype(entity, "Path"),
   );
@@ -79,6 +123,7 @@ export function transformToOpenApi(
     collections.interfaces,
     componentNames,
     collections.enums,
+    context,
   );
 
   const inheritanceMap = new Map<string, string[]>();
@@ -87,6 +132,7 @@ export function transformToOpenApi(
     classSchemas,
     inheritanceMap,
     componentNames,
+    context,
   );
 
   const schemas = buildComponentSchemas(
@@ -95,13 +141,13 @@ export function transformToOpenApi(
     collections.enums,
   );
   const errorRef = ensureErrorSchema(schemas);
-  const explicitPaths = buildExplicitPaths(collections, errorRef);
+  const explicitPaths = buildExplicitPaths(collections, errorRef, context);
   const fallbackPaths =
     Object.keys(explicitPaths).length > 0
       ? explicitPaths
       : buildCrudPaths(domainClasses, schemas, errorRef);
 
-  return {
+  const document: OpenApiDocument = {
     openapi: "3.1.0",
     info: {
       title: "PlantUML Generated API",
@@ -112,6 +158,25 @@ export function transformToOpenApi(
     components: {
       schemas,
     },
+  };
+
+  const canonicalDocument = canonicalizeDocument(document);
+  validateOpenApiDocument(canonicalDocument, context);
+
+  if (
+    options.mode === "strict" &&
+    context.diagnostics.some((item) => item.level === "error")
+  ) {
+    const message = context.diagnostics
+      .filter((item) => item.level === "error")
+      .map((item) => `${item.code}: ${item.message}`)
+      .join("\n");
+    throw new Error(message);
+  }
+
+  return {
+    document: canonicalDocument,
+    diagnostics: canonicalizeDiagnostics(context.diagnostics),
   };
 }
 
@@ -125,6 +190,52 @@ function extractDiagramCollections(diagram: UMLDiagram): DiagramCollections {
     enums: diagram.enums ?? [],
     relations: diagram.relations ?? [],
   };
+}
+
+function collectDiagramDiagnostics(
+  collections: DiagramCollections,
+  context: TransformContext,
+) {
+  const supportedClassStereotypes = new Set(["path", "requestbody", "response"]);
+  const supportedParameterPrefixes = ["parameter", "get", "post", "put", "delete", "patch", "options", "head"];
+
+  for (const entity of [...collections.classes, ...collections.interfaces]) {
+    for (const stereotype of entity.stereotypes ?? []) {
+      const normalized = stereotype.toLowerCase();
+      const isSupported =
+        supportedClassStereotypes.has(normalized) ||
+        supportedParameterPrefixes.some((prefix) =>
+          normalized === prefix || normalized.startsWith(`${prefix} `),
+        );
+
+      if (!isSupported) {
+        pushDiagnostic(context, {
+          level: "warning",
+          code: "unsupported-stereotype",
+          message: `Unsupported stereotype "${stereotype}" on ${entity.name}.`,
+          source: {
+            stage: "transform",
+            entity: entity.name,
+            stereotype,
+          },
+        });
+      }
+    }
+  }
+
+  for (const relation of collections.relations) {
+    if (relation.toCardinality?.type === "custom") {
+      pushDiagnostic(context, {
+        level: "warning",
+        code: "custom-cardinality",
+        message: `Custom cardinality "${relation.toCardinality.raw}" on relation ${relation.from} -> ${relation.to}.`,
+        source: {
+          stage: "parse",
+          relation: `${relation.from}->${relation.to}`,
+        },
+      });
+    }
+  }
 }
 
 /**
@@ -150,6 +261,7 @@ function buildClassSchemas(
   interfaces: UMLClassLike[],
   componentNames: Set<string>,
   enums: UMLEnum[],
+  context: TransformContext,
 ): Map<string, MutableSchema> {
   const classSchemas = new Map<string, MutableSchema>();
   for (const entity of [...classes, ...interfaces]) {
@@ -161,6 +273,8 @@ function buildClassSchemas(
       enums,
       interfaces,
       classes,
+      entity.name,
+      context,
     );
     appendMethodsMetadata(draft, entity.methods);
   }
@@ -183,6 +297,7 @@ type HttpMethodKey =
 function buildExplicitPaths(
   collections: DiagramCollections,
   errorSchemaRef: string,
+  context: TransformContext,
 ): Record<string, OpenApiPathItem> {
   const pathClasses = collections.classes.filter((entity) =>
     hasStereotype(entity, "Path"),
@@ -204,7 +319,7 @@ function buildExplicitPaths(
   );
   const parameterNames = new Set(
     collections.classes
-      .filter((entity) => hasStereotype(entity, "Parameter"))
+      .filter(isParameterEntity)
       .map((entity) => entity.name),
   );
   const responseCandidates = new Set<string>([
@@ -240,6 +355,12 @@ function buildExplicitPaths(
 
     const route = normalizeRoute(httpInfo.route);
     const pathItem: OpenApiPathItem = paths[route] ?? {};
+    const parameterRelations = collections.relations.filter(
+      (relation) =>
+        relation.from === pathClass.name &&
+        relation.to &&
+        parameterNames.has(relation.to),
+    );
     const requestRelation = collections.relations.find(
       (relation) =>
         relation.from === pathClass.name && requestBodyNames.has(relation.to),
@@ -256,17 +377,50 @@ function buildExplicitPaths(
     });
 
     const operation: OpenApiOperation = {
+      operationId: normalizeOperationId(httpInfo.method, pathClass.name),
       summary: buildOperationSummary(pathClass.name, httpInfo.method),
       tags: [deriveOperationTag(pathClass, responseRelations)],
+      parameters: buildOperationParameters(
+        route,
+        parameterRelations,
+        collections.classes,
+        componentNamesFromCollections(collections),
+        collections.enums,
+        collections.interfaces,
+        context,
+      ),
       responses: buildResponsesFromRelations(
         responseRelations,
         httpInfo.method,
         errorSchemaRef,
       ),
+      "x-source": {
+        kind: "operation",
+        name: pathClass.name,
+      },
     };
 
     if (requestRelation) {
       operation.requestBody = buildRequestBodyFromRelation(requestRelation);
+    }
+
+    if (!operation.parameters?.length) {
+      delete operation.parameters;
+    }
+
+    if ((pathItem as any)[methodKey]) {
+      pushDiagnostic(context, {
+        level: "error",
+        code: "duplicate-path-operation",
+        message: `Multiple Path stereotypes describe ${httpInfo.method.toUpperCase()} ${route}.`,
+        source: {
+          stage: "transform",
+          entity: pathClass.name,
+          path: route,
+          method: httpInfo.method.toUpperCase(),
+        },
+      });
+      continue;
     }
 
     (pathItem as any)[methodKey] = operation;
@@ -281,6 +435,22 @@ function hasStereotype(entity: UMLClassLike, stereotype: string): boolean {
     entity.stereotypes?.some(
       (entry) => entry.toLowerCase() === stereotype.toLowerCase(),
     ) ?? false
+  );
+}
+
+function isParameterEntity(entity: UMLClassLike): boolean {
+  return (
+    entity.stereotypes?.some((entry) =>
+      entry.toLowerCase().startsWith("parameter"),
+    ) ?? false
+  );
+}
+
+function componentNamesFromCollections(collections: DiagramCollections): Set<string> {
+  return collectComponentNames(
+    collections.classes.filter((entity) => !hasStereotype(entity, "Path")),
+    collections.interfaces,
+    collections.enums,
   );
 }
 
@@ -305,10 +475,7 @@ function extractHttpDetails(stereotypes?: string[]) {
 }
 
 function normalizeRoute(route: string): string {
-  if (!route) {
-    return "/";
-  }
-  return route.startsWith("/") ? route : `/${route}`;
+  return normalizeRoutePath(route);
 }
 
 function buildOperationSummary(name: string, method: string): string {
@@ -344,6 +511,168 @@ function buildRequestBodyFromRelation(
       },
     },
   };
+}
+
+function buildOperationParameters(
+  route: string,
+  parameterRelations: UMLRelation[],
+  classes: UMLClassLike[],
+  componentNames: Set<string>,
+  enums: UMLEnum[],
+  interfaces: UMLClassLike[],
+  context: TransformContext,
+): OpenApiParameter[] {
+  const placeholders = extractRoutePlaceholders(route);
+  const parameterClassByName = new Map(classes.map((entity) => [entity.name, entity]));
+  const explicitParameters: OpenApiParameter[] = [];
+  const seen = new Set<string>();
+
+  for (const relation of parameterRelations) {
+    const parameterClass = relation.to
+      ? parameterClassByName.get(relation.to)
+      : undefined;
+    if (!parameterClass) {
+      continue;
+    }
+
+    const definition = buildParameterDefinition(
+      parameterClass,
+      relation,
+      componentNames,
+      enums,
+      interfaces,
+      classes,
+      context,
+    );
+    if (!definition) {
+      continue;
+    }
+
+    const key = `${definition.in}:${definition.name}`;
+    seen.add(key);
+    explicitParameters.push(definition);
+  }
+
+  for (const placeholder of placeholders) {
+    const key = `path:${placeholder}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    explicitParameters.push({
+      name: placeholder,
+      in: "path",
+      required: true,
+      schema: { type: "string" },
+      description: `${humanizeName(placeholder)} path parameter`,
+      "x-source": {
+        kind: "parameter",
+        name: placeholder,
+      },
+    });
+  }
+
+  return explicitParameters.sort(compareParameters);
+}
+
+function buildParameterDefinition(
+  parameterClass: UMLClassLike,
+  relation: UMLRelation,
+  componentNames: Set<string>,
+  enums: UMLEnum[],
+  interfaces: UMLClassLike[],
+  classes: UMLClassLike[],
+  context: TransformContext,
+): OpenApiParameter | undefined {
+  const details = extractParameterDetails(parameterClass);
+  if (!details) {
+    return undefined;
+  }
+
+  const valueAttribute =
+    parameterClass.attributes.find((attribute) => attribute.name === "value") ??
+    parameterClass.attributes[0];
+  const schema = applyAttributeAnnotations(
+    mapAttributeType(
+      valueAttribute?.type,
+      componentNames,
+      new Set(enums.map((item) => item.name)),
+      new Set([...interfaces.map((item) => item.name), ...classes.map((item) => item.name)]),
+    ),
+    valueAttribute?.annotations,
+  );
+  const cardinality = analyzeCardinality(relation.toCardinality);
+
+  return {
+    name: details.name,
+    in: details.in,
+    required: details.in === "path" ? true : cardinality.required,
+    schema,
+    description: valueAttribute?.annotations?.description,
+    "x-source": {
+      kind: "parameter",
+      name: parameterClass.name,
+    },
+  };
+}
+
+function extractParameterDetails(
+  entity: UMLClassLike,
+): { in: ParameterLocation; name: string } | undefined {
+  for (const stereotype of entity.stereotypes ?? []) {
+    const match = stereotype.match(
+      /^parameter(?:\s+(path|query|header|cookie))?(?:\s+(.+))?$/i,
+    );
+    if (!match) {
+      continue;
+    }
+
+    const location = (match[1]?.toLowerCase() ?? "query") as ParameterLocation;
+    const rawName = match[2]?.trim();
+    const name = rawName ? normalizeParameterName(rawName) : toPropertyName(entity.name);
+    if (!name) {
+      continue;
+    }
+
+    return { in: location, name };
+  }
+
+  return undefined;
+}
+
+function normalizeParameterName(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return normalizePropertyName(trimmed);
+}
+
+function extractRoutePlaceholders(route: string): string[] {
+  return Array.from(route.matchAll(/\{([^}]+)\}/g), (match) => match[1]).filter(
+    Boolean,
+  );
+}
+
+function compareParameters(a: OpenApiParameter, b: OpenApiParameter): number {
+  if (a.in === b.in) {
+    return a.name.localeCompare(b.name);
+  }
+
+  if (a.in === "path") {
+    return -1;
+  }
+
+  if (b.in === "path") {
+    return 1;
+  }
+
+  return a.in.localeCompare(b.in);
 }
 
 function buildResponsesFromRelations(
@@ -408,18 +737,6 @@ function defaultStatusForMethod(method: string): string {
   }
 }
 
-function humanizeName(value: string): string {
-  const withoutQuotes = value.replace(/^"+|"+$/g, "").replace(/\s+/g, " ");
-  const spaced = withoutQuotes
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]/g, " ");
-  return spaced
-    .split(" ")
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(" ");
-}
-
 /**
  * Applies relations to either attach inheritance data or add reference properties.
  */
@@ -428,9 +745,16 @@ function applyRelations(
   classSchemas: Map<string, MutableSchema>,
   inheritanceMap: Map<string, string[]>,
   componentNames: Set<string>,
+  context: TransformContext,
 ) {
   for (const relation of relations) {
-    handleRelation(relation, classSchemas, inheritanceMap, componentNames);
+    handleRelation(
+      relation,
+      classSchemas,
+      inheritanceMap,
+      componentNames,
+      context,
+    );
   }
 }
 
@@ -448,6 +772,10 @@ function buildComponentSchemas(
     schemas[enumType.name] = {
       type: "string",
       enum: enumType.values,
+      "x-source": {
+        kind: "enum",
+        name: enumType.name,
+      },
     };
   }
 
@@ -482,6 +810,10 @@ function buildSchemaObjectFromDraft(
     required:
       draft.required.size > 0 ? Array.from(draft.required.values()) : undefined,
     description: draft.description,
+    "x-source": {
+      kind: "class",
+      name: draft.name,
+    },
   };
 
   if (draft.methods?.length) {
@@ -503,7 +835,7 @@ function ensureMutableSchema(
   name: string,
 ): MutableSchema {
   if (!store.has(name)) {
-    store.set(name, { properties: {}, required: new Set<string>() });
+    store.set(name, { name, properties: {}, required: new Set<string>() });
   }
   return store.get(name)!;
 }
@@ -518,6 +850,8 @@ function addAttributesToDraft(
   enums: UMLDiagram["enums"],
   interfaces: UMLDiagram["interfaces"],
   classes: UMLDiagram["classes"],
+  entityName: string,
+  context: TransformContext,
 ) {
   const enumNames = new Set(enums?.map((item) => item.name) ?? []);
   const classLikeNames = new Set([
@@ -526,13 +860,35 @@ function addAttributesToDraft(
   ]);
 
   for (const attribute of attributes) {
-    const propertySchema = mapAttributeType(
-      attribute.type,
-      componentNames,
-      enumNames,
-      classLikeNames,
+    const propertySchema = applyAttributeAnnotations(
+      mapAttributeType(
+        attribute.type,
+        componentNames,
+        enumNames,
+        classLikeNames,
+      ),
+      attribute.annotations,
+      {
+        kind: "attribute",
+        name: entityName,
+        member: attribute.name,
+      },
     );
     draft.properties[attribute.name] = propertySchema;
+
+    for (const unsupportedAnnotation of attribute.unsupportedAnnotations ?? []) {
+      pushDiagnostic(context, {
+        level: "warning",
+        code: "unsupported-annotation",
+        message: `Unsupported annotation "${unsupportedAnnotation}" on ${entityName}.${attribute.name}.`,
+        source: {
+          stage: "parse",
+          entity: entityName,
+          member: attribute.name,
+          annotation: unsupportedAnnotation,
+        },
+      });
+    }
 
     if (attribute.access === "public" && !attribute.optional) {
       draft.required.add(attribute.name);
@@ -606,6 +962,95 @@ function mapAttributeType(
   return { type: "string" };
 }
 
+function applyAttributeAnnotations(
+  schema: OpenApiSchema,
+  annotations?: UMLAttributeAnnotations,
+  source?: OpenApiSchema["x-source"],
+): OpenApiSchema {
+  const nextSchema: OpenApiSchema = { ...schema };
+  if (source) {
+    nextSchema["x-source"] = source;
+  }
+
+  if (!annotations) {
+    return nextSchema;
+  }
+
+  if (annotations.description) {
+    nextSchema.description = annotations.description;
+  }
+
+  if (annotations.example !== undefined) {
+    nextSchema.example = annotations.example;
+  }
+
+  if (annotations.nullable) {
+    nextSchema.nullable = true;
+  }
+
+  if (annotations.pattern && supportsStringValidation(nextSchema)) {
+    nextSchema.pattern = annotations.pattern;
+  }
+
+  if (annotations.minimum !== undefined && supportsNumericValidation(nextSchema)) {
+    nextSchema.minimum = annotations.minimum;
+  }
+
+  if (annotations.maximum !== undefined && supportsNumericValidation(nextSchema)) {
+    nextSchema.maximum = annotations.maximum;
+  }
+
+  if (annotations.default !== undefined) {
+    nextSchema.default = annotations.default;
+  }
+
+  if (annotations.deprecated) {
+    nextSchema.deprecated = true;
+  }
+
+  if (annotations.readOnly) {
+    nextSchema.readOnly = true;
+  }
+
+  if (annotations.writeOnly) {
+    nextSchema.writeOnly = true;
+  }
+
+  if (annotations.minLength !== undefined && supportsStringValidation(nextSchema)) {
+    nextSchema.minLength = annotations.minLength;
+  }
+
+  if (annotations.maxLength !== undefined && supportsStringValidation(nextSchema)) {
+    nextSchema.maxLength = annotations.maxLength;
+  }
+
+  if (annotations.minItems !== undefined && supportsArrayValidation(nextSchema)) {
+    nextSchema.minItems = annotations.minItems;
+  }
+
+  if (annotations.maxItems !== undefined && supportsArrayValidation(nextSchema)) {
+    nextSchema.maxItems = annotations.maxItems;
+  }
+
+  return nextSchema;
+}
+
+function supportsStringValidation(schema: OpenApiSchema): schema is OpenApiSchema & {
+  type: "string";
+} {
+  return "type" in schema && schema.type === "string";
+}
+
+function supportsNumericValidation(schema: OpenApiSchema): schema is OpenApiSchema & {
+  type: "number" | "integer";
+} {
+  return "type" in schema && (schema.type === "number" || schema.type === "integer");
+}
+
+function supportsArrayValidation(schema: OpenApiSchema): schema is OpenApiArraySchema {
+  return "type" in schema && schema.type === "array";
+}
+
 /**
  * Preserves class methods so the resulting schema can expose them via extensions.
  */
@@ -625,12 +1070,17 @@ function handleRelation(
   classSchemas: Map<string, MutableSchema>,
   inheritanceMap: Map<string, string[]>,
   componentNames: Set<string>,
+  context: TransformContext,
 ) {
   if (!relation.from || !relation.to) {
     return;
   }
 
   if (relation.type === "inheritance") {
+    if (!componentNames.has(relation.from) || !componentNames.has(relation.to)) {
+      pushUnresolvedRelationDiagnostic(relation, context);
+      return;
+    }
     const parents = inheritanceMap.get(relation.to) ?? [];
     parents.push(relation.from);
     inheritanceMap.set(relation.to, parents);
@@ -642,6 +1092,7 @@ function handleRelation(
   }
 
   if (!componentNames.has(relation.from) || !componentNames.has(relation.to)) {
+    pushUnresolvedRelationDiagnostic(relation, context);
     return;
   }
 
@@ -670,6 +1121,11 @@ function handleRelation(
     propertySchema = arraySchema;
   }
 
+  propertySchema = attachSourceMetadata(propertySchema, {
+    kind: "relation",
+    name: relation.from,
+    member: propertyName,
+  });
   draft.properties[propertyName] = propertySchema;
 
   if (cardinalityInfo.required) {
@@ -755,26 +1211,16 @@ function deriveRelationPropertyName(relation: UMLRelation): string | undefined {
 }
 
 function normalizeRelationLabel(label: string): string | undefined {
-  const trimmed = label.trim();
-  if (!trimmed) {
+  const normalized = normalizePropertyName(label);
+  if (!normalized) {
     return undefined;
   }
 
-  const underscored = trimmed.replace(/\s+/g, "_");
-  const sanitized = underscored
-    .replace(/[^A-Za-z0-9_]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-
-  if (!sanitized) {
-    return undefined;
+  if (/^\d/.test(normalized)) {
+    return `rel${normalized}`;
   }
 
-  if (/^\d/.test(sanitized)) {
-    return `rel${sanitized}`;
-  }
-
-  return sanitized;
+  return normalized;
 }
 
 /**
@@ -976,24 +1422,7 @@ function buildIdParameter(tag: string): OpenApiParameter {
  * Naively pluralizes and kebab-cases a PascalCase class name for REST paths.
  */
 function toPluralKebabCase(value: string): string {
-  const kebab = value
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/\s+/g, "-")
-    .toLowerCase();
-
-  if (kebab.endsWith("s")) {
-    return kebab;
-  }
-
-  if (/(x|z|ch|sh)$/.test(kebab)) {
-    return `${kebab}es`;
-  }
-
-  if (kebab.endsWith("y") && !/[aeiou]y$/.test(kebab)) {
-    return kebab.slice(0, -1) + "ies";
-  }
-
-  return `${kebab}s`;
+  return normalizePathSegment(value);
 }
 
 /**
@@ -1009,6 +1438,10 @@ function ensureErrorSchema(schemas: Record<string, OpenApiSchema>): string {
       },
       required: ["message"],
       description: "Standard error payload.",
+      "x-source": {
+        kind: "class",
+        name: ERROR_SCHEMA_NAME,
+      },
     };
   }
   return toComponentRef(ERROR_SCHEMA_NAME);
@@ -1033,4 +1466,366 @@ function buildErrorResponse(description: string, errorRef: string) {
  */
 function refSchema(ref: string): OpenApiSchema {
   return { $ref: ref };
+}
+
+function attachSourceMetadata(
+  schema: OpenApiSchema,
+  source: NonNullable<OpenApiSchema["x-source"]>,
+): OpenApiSchema {
+  return {
+    ...schema,
+    "x-source": source,
+  };
+}
+
+function pushDiagnostic(
+  context: TransformContext,
+  diagnostic: TransformDiagnostic,
+) {
+  context.diagnostics.push(diagnostic);
+}
+
+function pushUnresolvedRelationDiagnostic(
+  relation: UMLRelation,
+  context: TransformContext,
+) {
+  pushDiagnostic(context, {
+    level: "warning",
+    code: "unresolved-relation-target",
+    message: `Relation ${relation.from} -> ${relation.to} could not be resolved to known schemas.`,
+    source: {
+      stage: "transform",
+      relation: `${relation.from}->${relation.to}`,
+    },
+  });
+}
+
+function validateOpenApiDocument(
+  document: OpenApiDocument,
+  context: TransformContext,
+) {
+  validateSchemaReferences(document, context);
+  validatePathParameters(document, context);
+  validateOperations(document, context);
+  validateInheritanceCycles(document, context);
+}
+
+function validateSchemaReferences(
+  document: OpenApiDocument,
+  context: TransformContext,
+) {
+  const schemaNames = new Set(Object.keys(document.components.schemas));
+
+  const visitSchema = (schema: OpenApiSchema | undefined, trail: string) => {
+    if (!schema) {
+      return;
+    }
+
+    if ("$ref" in schema) {
+      const name = schema.$ref.replace("#/components/schemas/", "");
+      if (!schemaNames.has(name)) {
+        pushDiagnostic(context, {
+          level: "error",
+          code: "missing-schema-ref",
+          message: `Reference ${schema.$ref} does not exist.`,
+          source: {
+            stage: "validate",
+            path: trail,
+          },
+        });
+      }
+      return;
+    }
+
+    if ("items" in schema) {
+      visitSchema(schema.items, `${trail}.items`);
+    }
+
+    if ("additionalProperties" in schema && schema.additionalProperties) {
+      visitSchema(schema.additionalProperties, `${trail}.additionalProperties`);
+    }
+
+    if ("properties" in schema && schema.properties) {
+      for (const [name, property] of Object.entries(schema.properties)) {
+        visitSchema(property, `${trail}.properties.${name}`);
+      }
+    }
+
+    if ("allOf" in schema) {
+      schema.allOf.forEach((item, index) => {
+        visitSchema(item, `${trail}.allOf.${index}`);
+      });
+    }
+  };
+
+  for (const [name, schema] of Object.entries(document.components.schemas)) {
+    visitSchema(schema, `components.schemas.${name}`);
+  }
+
+  for (const [route, pathItem] of Object.entries(document.paths)) {
+    for (const [method, operation] of Object.entries(pathItem)) {
+      if (!isOperationKey(method) || !operation) {
+        continue;
+      }
+
+      operation.parameters?.forEach((parameter, index) => {
+        visitSchema(parameter.schema, `paths.${route}.${method}.parameters.${index}`);
+      });
+
+      for (const [status, response] of Object.entries(operation.responses)) {
+        const content = response.content?.["application/json"]?.schema;
+        visitSchema(content, `paths.${route}.${method}.responses.${status}`);
+      }
+
+      visitSchema(
+        operation.requestBody?.content?.["application/json"]?.schema,
+        `paths.${route}.${method}.requestBody`,
+      );
+    }
+  }
+}
+
+function validatePathParameters(
+  document: OpenApiDocument,
+  context: TransformContext,
+) {
+  for (const [route, pathItem] of Object.entries(document.paths)) {
+    const placeholders = extractRoutePlaceholders(route);
+
+    for (const [method, operation] of Object.entries(pathItem)) {
+      if (!isOperationKey(method) || !operation) {
+        continue;
+      }
+
+      const pathParameters = new Set(
+        (operation.parameters ?? [])
+          .filter((parameter) => parameter.in === "path")
+          .map((parameter) => parameter.name),
+      );
+
+      for (const placeholder of placeholders) {
+        if (!pathParameters.has(placeholder)) {
+          pushDiagnostic(context, {
+            level: "error",
+            code: "missing-path-parameter",
+            message: `Route placeholder {${placeholder}} is missing a path parameter in ${method.toUpperCase()} ${route}.`,
+            source: {
+              stage: "validate",
+              path: route,
+              method: method.toUpperCase(),
+            },
+          });
+        }
+      }
+    }
+  }
+}
+
+function validateOperations(
+  document: OpenApiDocument,
+  context: TransformContext,
+) {
+  for (const [route, pathItem] of Object.entries(document.paths)) {
+    for (const [method, operation] of Object.entries(pathItem)) {
+      if (!isOperationKey(method) || !operation) {
+        continue;
+      }
+
+      if (Object.keys(operation.responses).length === 0) {
+        pushDiagnostic(context, {
+          level: "error",
+          code: "empty-responses",
+          message: `Operation ${method.toUpperCase()} ${route} has no responses.`,
+          source: {
+            stage: "validate",
+            path: route,
+            method: method.toUpperCase(),
+          },
+        });
+      }
+
+      if (
+        operation.requestBody &&
+        Object.keys(operation.requestBody.content ?? {}).length === 0
+      ) {
+        pushDiagnostic(context, {
+          level: "error",
+          code: "empty-request-body",
+          message: `Operation ${method.toUpperCase()} ${route} has an empty requestBody.`,
+          source: {
+            stage: "validate",
+            path: route,
+            method: method.toUpperCase(),
+          },
+        });
+      }
+    }
+  }
+}
+
+function validateInheritanceCycles(
+  document: OpenApiDocument,
+  context: TransformContext,
+) {
+  const graph = new Map<string, string[]>();
+
+  for (const [name, schema] of Object.entries(document.components.schemas)) {
+    if (!("allOf" in schema)) {
+      continue;
+    }
+
+    const parents = schema.allOf
+      .filter((item): item is Extract<OpenApiSchema, { $ref: string }> => "$ref" in item)
+      .map((item) => item.$ref.replace("#/components/schemas/", ""));
+    graph.set(name, parents);
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  const dfs = (name: string) => {
+    if (visiting.has(name)) {
+      pushDiagnostic(context, {
+        level: "error",
+        code: "inheritance-cycle",
+        message: `Inheritance cycle detected at schema ${name}.`,
+        source: {
+          stage: "validate",
+          entity: name,
+        },
+      });
+      return;
+    }
+
+    if (visited.has(name)) {
+      return;
+    }
+
+    visiting.add(name);
+    for (const parent of graph.get(name) ?? []) {
+      dfs(parent);
+    }
+    visiting.delete(name);
+    visited.add(name);
+  };
+
+  for (const name of graph.keys()) {
+    dfs(name);
+  }
+}
+
+function canonicalizeDocument(document: OpenApiDocument): OpenApiDocument {
+  const sortRecord = <T>(record: Record<string, T>) =>
+    Object.fromEntries(
+      Object.entries(record).sort(([left], [right]) => left.localeCompare(right)),
+    ) as Record<string, T>;
+
+  const canonicalizeSchema = (schema: OpenApiSchema): OpenApiSchema => {
+    if ("$ref" in schema) {
+      return schema;
+    }
+
+    if ("items" in schema) {
+      return {
+        ...schema,
+        items: canonicalizeSchema(schema.items),
+      };
+    }
+
+    if ("allOf" in schema) {
+      return {
+        ...schema,
+        allOf: schema.allOf.map(canonicalizeSchema),
+      };
+    }
+
+    if ("properties" in schema && schema.properties) {
+      return {
+        ...schema,
+        properties: sortRecord(
+          Object.fromEntries(
+            Object.entries(schema.properties).map(([key, value]) => [
+              key,
+              canonicalizeSchema(value),
+            ]),
+          ),
+        ),
+        required: schema.required?.slice().sort((a, b) => a.localeCompare(b)),
+      };
+    }
+
+    return schema;
+  };
+
+  const paths = sortRecord(
+    Object.fromEntries(
+      Object.entries(document.paths).map(([route, pathItem]) => [
+        route,
+        canonicalizePathItem(pathItem),
+      ]),
+    ),
+  );
+  const schemas = sortRecord(
+    Object.fromEntries(
+      Object.entries(document.components.schemas).map(([name, schema]) => [
+        name,
+        canonicalizeSchema(schema),
+      ]),
+    ),
+  );
+
+  return {
+    ...document,
+    paths,
+    components: {
+      ...document.components,
+      schemas,
+    },
+  };
+}
+
+function canonicalizePathItem(pathItem: OpenApiPathItem): OpenApiPathItem {
+  const methodOrder = ["delete", "get", "head", "options", "patch", "post", "put"];
+  const next: OpenApiPathItem = {};
+
+  if (pathItem.summary) {
+    next.summary = pathItem.summary;
+  }
+
+  if (pathItem.description) {
+    next.description = pathItem.description;
+  }
+
+  for (const method of methodOrder) {
+    const operation = (pathItem as Record<string, OpenApiOperation | string | undefined>)[method];
+    if (operation && typeof operation === "object") {
+      (next as Record<string, OpenApiOperation>)[method] = {
+        ...operation,
+        parameters: operation.parameters?.slice().sort(compareParameters),
+        responses: Object.fromEntries(
+          Object.entries(operation.responses).sort(([left], [right]) =>
+            left.localeCompare(right),
+          ),
+        ),
+      };
+    }
+  }
+
+  return next;
+}
+
+function canonicalizeDiagnostics(
+  diagnostics: TransformDiagnostic[],
+): TransformDiagnostic[] {
+  return [...diagnostics].sort((left, right) => {
+    const leftKey = `${left.level}:${left.code}:${left.message}`;
+    const rightKey = `${right.level}:${right.code}:${right.message}`;
+    return leftKey.localeCompare(rightKey);
+  });
+}
+
+function isOperationKey(value: string): value is keyof OpenApiPathItem {
+  return ["get", "post", "put", "delete", "patch", "head", "options"].includes(
+    value,
+  );
 }

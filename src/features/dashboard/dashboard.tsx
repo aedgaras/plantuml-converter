@@ -193,17 +193,6 @@ export default function Dashboard() {
                 label="PlantUML Diagram"
               />
             </Panel>
-            <Panel
-              title="OpenAPI Diagram"
-              className="min-h-[14rem] flex-1"
-              contentClassName="bg-white dark:bg-gray-900 min-h-0"
-            >
-              <DiagramPreview
-                diagramUrl={openApiDiagramUrl}
-                diagramSize={openApiDiagramSize}
-                label="OpenAPI Diagram"
-              />
-            </Panel>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
