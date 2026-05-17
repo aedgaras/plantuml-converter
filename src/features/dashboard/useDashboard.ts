@@ -62,11 +62,15 @@ export const useDashboard = () => {
       }));
   }, [fixtures]);
   const openApiSchemaRoute = useMemo(() => {
+    const searchParams = new URLSearchParams({
+      uml: plantumlEncoder.encode(plantUmlCode),
+    });
+
     if (selectedFixtureId) {
-      return `/api/openapi-schema?spec=${encodeURIComponent(selectedFixtureId)}`;
+      searchParams.set("spec", selectedFixtureId);
     }
 
-    return `/api/openapi-schema?uml=${plantumlEncoder.encode(plantUmlCode)}`;
+    return `/api/openapi-schema?${searchParams.toString()}`;
   }, [plantUmlCode, selectedFixtureId]);
 
   const updateOutputs = useCallback(

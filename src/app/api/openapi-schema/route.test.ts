@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import plantumlEncoder from "plantuml-encoder";
 import { describe, expect, it } from "vitest";
 
 import { GET, POST } from "./route";
@@ -15,6 +16,27 @@ describe("/api/openapi-schema", () => {
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(response.headers.get("content-disposition")).toContain(
       "person-transformed.yaml",
+    );
+    expect(body).toContain("openapi: 3.1.0");
+    expect(body).toContain("Person:");
+  });
+
+  it("falls back to transformed UML when a pre-transformed fixture spec is missing", async () => {
+    const encodedPlantUml = plantumlEncoder.encode(
+      ["@startuml", "class Person {", "  +name: String", "}", "@enduml"].join(
+        "\n",
+      ),
+    );
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/openapi-schema?spec=missing-fixture&uml=${encodedPlantUml}`,
+      ),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toContain(
+      "openapi-schema.yaml",
     );
     expect(body).toContain("openapi: 3.1.0");
     expect(body).toContain("Person:");

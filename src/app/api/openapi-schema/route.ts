@@ -65,6 +65,11 @@ async function loadTransformedSpec(spec: string) {
   return null;
 }
 
+function transformEncodedPlantUml(encodedPlantUml: string) {
+  const plantUmlSource = plantumlEncoder.decode(encodedPlantUml);
+  return transformPlantUmlToOpenApiYaml(plantUmlSource);
+}
+
 export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
@@ -81,6 +86,12 @@ export async function GET(request: NextRequest) {
       const spec = await loadTransformedSpec(transformedSpec);
 
       if (!spec) {
+        if (encodedPlantUml) {
+          const openApiSchema = transformEncodedPlantUml(encodedPlantUml);
+
+          return createYamlResponse(openApiSchema, "openapi-schema.yaml");
+        }
+
         return NextResponse.json(
           { error: "Transformed OpenAPI spec was not found." },
           { status: 404 },
@@ -106,8 +117,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const plantUmlSource = plantumlEncoder.decode(encodedPlantUml);
-    const openApiSchema = transformPlantUmlToOpenApiYaml(plantUmlSource);
+    const openApiSchema = transformEncodedPlantUml(encodedPlantUml);
 
     return createYamlResponse(openApiSchema, "openapi-schema.yaml");
   } catch (error) {
