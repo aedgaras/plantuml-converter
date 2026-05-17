@@ -70,9 +70,7 @@ export default function Dashboard() {
   }, [openApiSchema]);
   const handleOpenSwaggerEditor = useCallback(() => {
     const schemaUrl = new URL(openApiSchemaRoute, window.location.origin);
-    const swaggerEditorUrl = new URL("https://editor.swagger.io/");
-    swaggerEditorUrl.searchParams.set("url", schemaUrl.toString());
-    window.location.assign(swaggerEditorUrl.toString());
+    window.location.assign(`https://editor.swagger.io/?url=${schemaUrl}`);
   }, [openApiSchemaRoute]);
 
   return (

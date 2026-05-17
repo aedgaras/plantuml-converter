@@ -12,6 +12,7 @@ describe("/api/openapi-schema", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("application/yaml");
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(response.headers.get("content-disposition")).toContain(
       "person-transformed.yaml",
     );

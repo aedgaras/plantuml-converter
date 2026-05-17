@@ -14,14 +14,19 @@ type TransformRequestBody = {
 };
 
 const TRANSFORMED_SPEC_DIRECTORY = path.join(process.cwd(), "src/lib/specs");
+const YAML_RESPONSE_HEADERS = {
+  "content-type": "application/yaml; charset=utf-8",
+  "cache-control": "no-store",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+} as const;
 
 function createYamlResponse(yaml: string, fileName: string) {
   return new NextResponse(yaml, {
     status: 200,
     headers: {
-      "content-type": "application/yaml; charset=utf-8",
+      ...YAML_RESPONSE_HEADERS,
       "content-disposition": `inline; filename="${fileName}"`,
-      "cache-control": "no-store",
     },
   });
 }
@@ -58,6 +63,13 @@ async function loadTransformedSpec(spec: string) {
   }
 
   return null;
+}
+
+export function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: YAML_RESPONSE_HEADERS,
+  });
 }
 
 export async function GET(request: NextRequest) {
