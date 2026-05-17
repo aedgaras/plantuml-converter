@@ -1239,6 +1239,7 @@ function buildCrudPaths(
   errorSchemaRef: string,
 ): Record<string, OpenApiPathItem> {
   const paths: Record<string, OpenApiPathItem> = {};
+  const componentNames = new Set(Object.keys(schemas));
 
   for (const umlClass of classes) {
     const resourceName = umlClass.name;
@@ -1264,9 +1265,142 @@ function buildCrudPaths(
       put: buildUpdateOperation(tag, resourceRef, errorSchemaRef),
       delete: buildDeleteOperation(tag, errorSchemaRef),
     };
+
+    for (const method of umlClass.methods.filter(
+      (entry) => entry.access === "public",
+    )) {
+      const httpMethod = inferHttpMethodFromMethodName(method.name);
+      const methodPath = `${itemPath}/${toActionPathSegment(method.name)}`;
+      const pathItem = paths[methodPath] ?? {
+        summary: `${resourceName} ${humanizeName(method.name)}`,
+      };
+
+      (pathItem as Record<string, OpenApiOperation>)[httpMethod] =
+        buildClassMethodOperation(
+          resourceName,
+          method,
+          httpMethod,
+          errorSchemaRef,
+          componentNames,
+        );
+
+      paths[methodPath] = pathItem;
+    }
   }
 
   return paths;
+}
+
+function inferHttpMethodFromMethodName(methodName: string): HttpMethodKey {
+  const normalizedName = methodName.trim().toLowerCase();
+
+  if (
+    /^(get|list|find|search|fetch|read|load|retrieve|count)/.test(
+      normalizedName,
+    )
+  ) {
+    return "get";
+  }
+
+  if (/^(put|update|replace|set)/.test(normalizedName)) {
+    return "put";
+  }
+
+  if (/^(patch|modify)/.test(normalizedName)) {
+    return "patch";
+  }
+
+  if (/^(delete|remove|destroy)/.test(normalizedName)) {
+    return "delete";
+  }
+
+  return "post";
+}
+
+function toActionPathSegment(value: string): string {
+  return value
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+function buildClassMethodOperation(
+  resourceName: string,
+  method: UMLMethod,
+  httpMethod: HttpMethodKey,
+  errorRef: string,
+  componentNames: Set<string>,
+): OpenApiOperation {
+  const successStatus = resolveMethodSuccessStatus(httpMethod, method.returnType);
+  const responses: Record<string, OpenApiResponse> = {
+    [successStatus]: buildMethodSuccessResponse(
+      resourceName,
+      method,
+      componentNames,
+    ),
+  };
+
+  responses["404"] = buildErrorResponse(`${resourceName} not found`, errorRef);
+
+  return {
+    operationId: normalizeOperationId(
+      httpMethod.toUpperCase(),
+      `${resourceName}-${method.name}`,
+    ),
+    summary: `${httpMethod.toUpperCase()} ${resourceName} ${humanizeName(method.name)}`,
+    tags: [resourceName],
+    parameters: [buildIdParameter(resourceName)],
+    responses,
+    "x-source": {
+      kind: "operation",
+      name: resourceName,
+      member: method.name,
+    },
+  };
+}
+
+function resolveMethodSuccessStatus(
+  httpMethod: HttpMethodKey,
+  returnType?: string,
+): string {
+  const normalizedReturnType = returnType?.trim().toLowerCase();
+
+  if (!normalizedReturnType || normalizedReturnType === "void") {
+    return "204";
+  }
+
+  return defaultStatusForMethod(httpMethod.toUpperCase());
+}
+
+function buildMethodSuccessResponse(
+  resourceName: string,
+  method: UMLMethod,
+  componentNames: Set<string>,
+): OpenApiResponse {
+  const normalizedReturnType = method.returnType?.trim().toLowerCase();
+  if (!normalizedReturnType || normalizedReturnType === "void") {
+    return {
+      description: `${humanizeName(method.name)} completed`,
+    };
+  }
+
+  const schema = mapAttributeType(
+    method.returnType,
+    componentNames,
+    componentNames,
+    componentNames,
+  );
+
+  return {
+    description: `${resourceName} ${humanizeName(method.name)} response`,
+    content: {
+      "application/json": {
+        schema,
+      },
+    },
+  };
 }
 
 /**

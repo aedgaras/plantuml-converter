@@ -1,0 +1,410 @@
+openapi: 3.1.0
+info:
+  title: Person API
+  version: 1.0.0
+servers:
+  - url: "https://api.example.com/v1"
+
+paths:
+  /persons:
+    get:
+      operationId: listPersons
+      summary: List persons
+      tags:
+        - Persons
+      responses:
+        "200":
+          description: Persons retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Person"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      operationId: createPerson
+      summary: Create a person
+      tags:
+        - Persons
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonCreate"
+      responses:
+        "201":
+          description: Person created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /persons/{personId}:
+    get:
+      operationId: getPersonById
+      summary: Get a person by id
+      tags:
+      - Persons
+      parameters:
+      - $ref: "#/components/parameters/PersonId"
+      responses:
+        "200":
+          description: Person retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      operationId: replacePerson
+      summary: Replace a person
+      tags:
+      - Persons
+      parameters:
+      - $ref: "#/components/parameters/PersonId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonCreate"
+      responses:
+        "200":
+          description: Person replaced successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+         $ref: "#/components/responses/InternalServerError"
+    patch:
+      operationId: updatePerson
+      summary: Update a person
+      tags:
+      - Persons
+      parameters:
+      - $ref: "#/components/parameters/PersonId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonUpdate"
+      responses:
+        "200":
+          description: Person updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      operationId: deletePerson
+      summary: Delete a person
+      tags:
+      - Persons
+      parameters:
+      - $ref: "#/components/parameters/PersonId"
+      responses:
+        "204":
+          description: Person deleted successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /students:
+    get:
+      operationId: listStudents
+      summary: List students
+      tags:
+        - Students
+      responses:
+        "200":
+          description: Students retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      operationId: createStudent
+      summary: Create a student
+      tags:
+        - Students
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentCreate"
+      responses:
+        "201":
+          description: Student created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /students/{studentId}:
+    get:
+      operationId: getStudentById
+      summary: Get a student by id
+      tags:
+      - Students
+      parameters:
+      - $ref: "#/components/parameters/StudentId"
+      responses:
+        "200":
+          description: Student retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      operationId: replaceStudent
+      summary: Replace a student
+      tags:
+      - Students
+      parameters:
+      - $ref: "#/components/parameters/StudentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentCreate"
+      responses:
+        "200":
+          description: Student replaced successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    patch:
+      operationId: updateStudent
+      summary: Update a student
+      tags:
+      - Students
+      parameters:
+      - $ref: "#/components/parameters/StudentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentUpdate"
+      responses:
+        "200":
+          description: Student updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      operationId: deleteStudent
+      summary: Delete a student
+      tags:
+        - Students
+      parameters:
+        - $ref: "#/components/parameters/StudentId"
+      responses:
+        "204":
+          description: Student deleted successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  parameters:
+    PersonId:
+      name: personId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    StudentId:
+      name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Person:
+      type: object
+      required:
+        - id
+        - name
+        - age
+        - address
+        - addresses
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        age:
+          type: integer
+        address:
+          type: string
+        addresses:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Address"
+    PersonCreate:
+      type: object
+      required:
+        - name
+        - age
+        - address
+        - addresses
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+        address:
+          type: string
+        addresses:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AddressCreate"
+    PersonUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+        address:
+          type: string
+        addresses:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AddressCreate"
+    Student:
+      allOf:
+        - $ref: "#/components/schemas/Person"
+        - type: object
+      required:
+        - module
+      properties:
+        module:
+          type: string
+    StudentCreate:
+      allOf:
+        - $ref: "#/components/schemas/PersonCreate"
+        - type: object
+      required:
+        - module
+      properties:
+        module:
+          type: string
+    StudentUpdate:
+      allOf:
+        - $ref: "#/components/schemas/PersonUpdate"
+        - type: object
+      properties:
+        module:
+          type: string
+    Address:
+      type: object
+      required:
+        - id
+        - address
+      properties:
+        id:
+          type: string
+          format: uuid
+        address:
+          type: string
+    AddressCreate:
+      type: object
+      required:
+        - address
+      properties:
+        address:
+          type: string
+    Speakable:
+      type: object
+      additionalProperties: false
+    Gender:
+      type: string
+      enum:
+        - MALE
+        - FEMALE
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string

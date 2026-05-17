@@ -590,6 +590,102 @@ describe("transformToOpenApi", () => {
     ]);
   });
 
+  it("transforms public class methods into HTTP operations using return types", () => {
+    const doc = toOpenApi([
+      "class Report {",
+      "  +id: uuid",
+      "}",
+      "",
+      "class Employee {",
+      "  +listReports(): Report[]",
+      "  +updateProfile(): Employee",
+      "  +patchStatus(): string",
+      "  +deleteAvatar(): void",
+      "  +hire(): void",
+      "  -syncInternalState(): string",
+      "}",
+    ]);
+
+    expect(doc.paths["/employees/{id}/list-reports"]?.get).toMatchObject({
+      summary: "GET Employee List Reports",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Employee identifier",
+        },
+      ],
+      responses: {
+        "200": {
+          content: {
+            "application/json": {
+              schema: {
+                type: "array",
+                items: { $ref: "#/components/schemas/Report" },
+              },
+            },
+          },
+        },
+        "404": {
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ApiError" },
+            },
+          },
+        },
+      },
+      "x-source": {
+        kind: "operation",
+        name: "Employee",
+        member: "listReports",
+      },
+    });
+
+    expect(doc.paths["/employees/{id}/update-profile"]?.put?.responses["200"]).toMatchObject(
+      {
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/Employee" },
+          },
+        },
+      },
+    );
+
+    expect(doc.paths["/employees/{id}/patch-status"]?.patch?.responses["200"]).toMatchObject(
+      {
+        content: {
+          "application/json": {
+            schema: { type: "string" },
+          },
+        },
+      },
+    );
+
+    expect(doc.paths["/employees/{id}/delete-avatar"]?.delete?.responses).toMatchObject(
+      {
+        "204": {
+          description: "Delete Avatar completed",
+        },
+        "404": {
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ApiError" },
+            },
+          },
+        },
+      },
+    );
+
+    expect(doc.paths["/employees/{id}/hire"]?.post?.responses["204"]).toMatchObject(
+      {
+        description: "Hire completed",
+      },
+    );
+    expect(doc.paths["/employees/{id}/sync-internal-state"]).toBeUndefined();
+  });
+
   it("returns diagnostics, canonical ordering, and strict mode failures", () => {
     const result = transformToOpenApiResult(
       transformPlantUML(

@@ -1,0 +1,472 @@
+openapi: 3.1.0
+info:
+  title: PlantUML Generated API
+  version: 1.0.0
+  description: OpenAPI schema generated from PlantUML diagram.
+paths:
+  /address:
+    summary: Address collection
+    get:
+      summary: List Addresss
+      tags:
+        - Address
+      responses:
+        "200":
+          description: List of Addresss
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Address"
+    post:
+      summary: Create Address
+      tags:
+        - Address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Address"
+      responses:
+        "201":
+          description: Address created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /address/{id}:
+    summary: Address item
+    delete:
+      summary: Delete Address
+      tags:
+        - Address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Address identifier
+      responses:
+        "204":
+          description: Address deleted
+        "404":
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      summary: Get Address
+      tags:
+        - Address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Address identifier
+      responses:
+        "200":
+          description: Address details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "404":
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      summary: Update Address
+      tags:
+        - Address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Address identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Address"
+      responses:
+        "200":
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "404":
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /persons:
+    summary: Person collection
+    get:
+      summary: List Persons
+      tags:
+        - Person
+      responses:
+        "200":
+          description: List of Persons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Person"
+    post:
+      summary: Create Person
+      tags:
+        - Person
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Person"
+      responses:
+        "201":
+          description: Person created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /persons/{id}:
+    summary: Person item
+    delete:
+      summary: Delete Person
+      tags:
+        - Person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Person identifier
+      responses:
+        "204":
+          description: Person deleted
+        "404":
+          description: Person not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      summary: Get Person
+      tags:
+        - Person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Person identifier
+      responses:
+        "200":
+          description: Person details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Person not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      summary: Update Person
+      tags:
+        - Person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Person identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Person"
+      responses:
+        "200":
+          description: Person updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Person"
+        "404":
+          description: Person not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /persons/{id}/greet:
+    summary: Person Greet
+    post:
+      operationId: postPersonGreet
+      summary: POST Person Greet
+      tags:
+        - Person
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Person identifier
+      responses:
+        "204":
+          description: Greet completed
+        "404":
+          description: Person not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+      x-source:
+        kind: operation
+        name: Person
+        member: greet
+  /students:
+    summary: Student collection
+    get:
+      summary: List Students
+      tags:
+        - Student
+      responses:
+        "200":
+          description: List of Students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+    post:
+      summary: Create Student
+      tags:
+        - Student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Student"
+      responses:
+        "201":
+          description: Student created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /students/{id}:
+    summary: Student item
+    delete:
+      summary: Delete Student
+      tags:
+        - Student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Student identifier
+      responses:
+        "204":
+          description: Student deleted
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      summary: Get Student
+      tags:
+        - Student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Student identifier
+      responses:
+        "200":
+          description: Student details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      summary: Update Student
+      tags:
+        - Student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Student identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Student"
+      responses:
+        "200":
+          description: Student updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  schemas:
+    Address:
+      type: object
+      properties:
+        address:
+          type: string
+          x-source:
+            kind: attribute
+            name: Address
+            member: address
+      required:
+        - address
+      x-source:
+        kind: class
+        name: Address
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required:
+        - message
+      description: Standard error payload.
+      x-source:
+        kind: class
+        name: ApiError
+    Gender:
+      type: string
+      enum:
+        - MALE
+        - FEMALE
+      x-source:
+        kind: enum
+        name: Gender
+    Person:
+      type: object
+      properties:
+        address:
+          type: array
+          items:
+            $ref: "#/components/schemas/Address"
+          minItems: 1
+          x-source:
+            kind: relation
+            name: Person
+            member: address
+        age:
+          type: integer
+          format: int32
+          x-source:
+            kind: attribute
+            name: Person
+            member: age
+        name:
+          type: string
+          x-source:
+            kind: attribute
+            name: Person
+            member: name
+      required:
+        - address
+        - name
+      x-source:
+        kind: class
+        name: Person
+      x-methods:
+        - name: greet
+          access: public
+          returnType: void
+    Speakable:
+      type: object
+      x-source:
+        kind: class
+        name: Speakable
+      x-methods:
+        - name: speak
+          access: public
+          returnType: void
+    Student:
+      allOf:
+        - $ref: "#/components/schemas/Person"
+        - type: object
+          properties:
+            module:
+              type: string
+              x-source:
+                kind: attribute
+                name: Student
+                member: module
+          required:
+            - module
+          x-source:
+            kind: class
+            name: Student

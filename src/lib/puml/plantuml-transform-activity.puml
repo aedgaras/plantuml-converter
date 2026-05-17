@@ -1,0 +1,115 @@
+@startuml
+title PlantUML -> OpenAPI model-to-model transformacijos procesas
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  DiamondBackgroundColor #E2E8F0
+  DiamondBorderColor #334155
+  StartColor #0F766E
+  EndColor #0F766E
+  BarColor #334155
+  FontColor #0F172A
+}
+skinparam note {
+  BackgroundColor #FFF7ED
+  BorderColor #C2410C
+}
+
+start
+
+:Gauti UMLDiagram;
+
+:applyDiagramRules();
+note right
+  Normalizuojami:
+  - component vardai
+  - property vardai
+  - enum reikšmės
+  - relation from/to/label
+  Išsaugomi raw* laukai.
+end note
+
+:extractDiagramCollections();
+
+:collectDiagramDiagnostics();
+note right
+  Ankstyvos diagnostikos:
+  - unsupported-stereotype
+  - custom-cardinality
+end note
+
+:Atskirti domenines klases;
+
+:collectComponentNames();
+
+:buildClassSchemas();
+note right
+  Klasės ir sąsajos ->
+  tarpiniai schemų juodraščiai:
+  - properties
+  - required
+  - x-methods
+end note
+
+:applyRelations();
+note right
+  inheritance -> allOf
+  association/aggregation/composition ->
+  $ref arba array<$ref>
+end note
+
+:buildComponentSchemas();
+
+:ensureErrorSchema();
+
+if (Yra bent viena Path klase?) then (taip)
+  :buildExplicitPaths();
+  note right
+    Path + HTTP stereotipas ->
+    paths[route][method]
+
+    Ryšiai:
+    - RequestBody -> requestBody
+    - Parameter -> parameters[]
+    - Response arba domeninė schema -> responses
+  end note
+else (ne)
+  :buildCrudPaths();
+  note right
+    Kiekvienai domeninei klasei:
+    - GET/POST /resources
+    - GET/PUT/DELETE /resources/{id}
+    - vieši metodai ->
+      /resources/{id}/action
+  end note
+endif
+
+:Sudaryti OpenApiDocument;
+
+:validateOpenApiDocument();
+note right
+  Validacija:
+  - missing-schema-ref
+  - missing-path-parameter
+  - empty-responses
+  - empty-request-body
+  - inheritance-cycle
+end note
+
+:canonicalizeDocument();
+:canonicalizeDiagnostics();
+
+if (strict rezimas ir yra error diagnostiku?) then (taip)
+  :Mesti išimtį;
+  stop
+else (ne)
+  :Grąžinti
+  { document, diagnostics };
+endif
+
+stop
+@enduml
