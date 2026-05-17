@@ -1,9 +1,11 @@
 @startuml
-title PlantUML -> OpenAPI model-to-model transformacijos procesas
+title PlantUML -> OpenAPI transformacijos procesas
 
 skinparam backgroundColor white
 skinparam shadowing false
 skinparam defaultFontName Helvetica
+skinparam dpi 140
+skinparam ArrowColor #334155
 skinparam activity {
   BackgroundColor #F8FAFC
   BorderColor #334155
@@ -17,98 +19,62 @@ skinparam activity {
 skinparam note {
   BackgroundColor #FFF7ED
   BorderColor #C2410C
+  FontColor #431407
 }
 
 start
 
-:Gauti UMLDiagram;
+:PlantUML diagrama;
+:Parse į tarpinį UML modelį;
 
-:applyDiagramRules();
+:Normalizuoti modelį;
 note right
-  Normalizuojami:
-  - component vardai
-  - property vardai
-  - enum reikšmės
-  - relation from/to/label
-  Išsaugomi raw* laukai.
+  Vardai, enum reikšmės,
+  ryšiai ir kardinalumai.
 end note
 
-:extractDiagramCollections();
+:Sukaupti diagnostikas;
+:Atskirti domeno ir API elementus;
 
-:collectDiagramDiagnostics();
+:Sudaryti komponentų schemas;
 note right
-  Ankstyvos diagnostikos:
-  - unsupported-stereotype
-  - custom-cardinality
+  Klasės ir sąsajos -> object schemas,
+  enum -> string enum,
+  metodai -> x-methods.
 end note
 
-:Atskirti domenines klases;
-
-:collectComponentNames();
-
-:buildClassSchemas();
+:Pritaikyti UML ryšius;
 note right
-  Klasės ir sąsajos ->
-  tarpiniai schemų juodraščiai:
-  - properties
-  - required
-  - x-methods
+  Paveldimumas -> allOf,
+  asociacijos -> $ref arba array.
 end note
 
-:applyRelations();
-note right
-  inheritance -> allOf
-  association/aggregation/composition ->
-  $ref arba array<$ref>
-end note
+:Pridėti pagalbines schemas;
 
-:buildComponentSchemas();
-
-:ensureErrorSchema();
-
-if (Yra bent viena Path klase?) then (taip)
-  :buildExplicitPaths();
-  note right
-    Path + HTTP stereotipas ->
-    paths[route][method]
-
-    Ryšiai:
-    - RequestBody -> requestBody
-    - Parameter -> parameters[]
-    - Response arba domeninė schema -> responses
-  end note
+if (Yra <<Path>> elementų?) then (taip)
+  :Kurti explicit API kelius;
+  :Prijungti parameters, requestBody ir responses;
 else (ne)
-  :buildCrudPaths();
-  note right
-    Kiekvienai domeninei klasei:
-    - GET/POST /resources
-    - GET/PUT/DELETE /resources/{id}
-    - vieši metodai ->
-      /resources/{id}/action
-  end note
+  :Generuoti numatytus CRUD kelius;
+  :Metodus paversti action endpointais;
 endif
 
-:Sudaryti OpenApiDocument;
-
-:validateOpenApiDocument();
+:Surinkti OpenAPI 3.1 dokumentą;
+:Validuoti dokumentą;
 note right
-  Validacija:
-  - missing-schema-ref
-  - missing-path-parameter
-  - empty-responses
-  - empty-request-body
-  - inheritance-cycle
+  Tikrinami $ref, path parameter,
+  response/request pilnumas
+  ir paveldimumo ciklai.
 end note
 
-:canonicalizeDocument();
-:canonicalizeDiagnostics();
+:Kanonizuoti rezultatą;
 
-if (strict rezimas ir yra error diagnostiku?) then (taip)
-  :Mesti išimtį;
+if (Strict režimas ir yra klaidų?) then (taip)
+  :Grąžinti klaidų sąrašą;
   stop
 else (ne)
-  :Grąžinti
-  { document, diagnostics };
+  :Grąžinti OpenAPI dokumentą
+  ir diagnostikas;
 endif
 
 stop
