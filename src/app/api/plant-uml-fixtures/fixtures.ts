@@ -29,6 +29,8 @@ const CATEGORY_MAP = {
   simple: "Simple diagrams",
 } as const;
 
+const EXCLUDED_FIXTURE_FILES = new Set(["plantuml-transform-activity.puml"]);
+
 function determineCategory(fileName: string, fallback: string): string {
   const normalized = fileName.toLowerCase();
 
@@ -72,6 +74,7 @@ async function loadFixturesFromSource({
   const entries = await fs.readdir(directory);
   const files = entries
     .filter((file) => file.endsWith(extension))
+    .filter((file) => !EXCLUDED_FIXTURE_FILES.has(file))
     .sort((a, b) => a.localeCompare(b));
 
   return Promise.all(

@@ -1,34 +1,28 @@
 import {
-  useState,
-  useMemo,
+  type ChangeEvent,
   useCallback,
   useEffect,
-  ChangeEvent,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import { DEFAULT_PLANTUML } from "../editor/utils";
-import { OpenApiDocument } from "../transformator/open-api/open-api-types";
 import { useTransformator } from "../transformator/use-transformator";
-import { buildOpenApiPlantUmlDiagram } from "./utils";
-import { PlantUmlFixture } from "./types";
+import type { PlantUmlFixture } from "./types";
 import plantumlEncoder from "plantuml-encoder";
-import { stringifyOpenApiDocument } from "../transformator/shared/shared-transformator";
 
 export const useDashboard = () => {
   const [plantUmlCode, setPlantUmlCode] = useState(DEFAULT_PLANTUML);
   const [openApiSchema, setOpenApiSchema] = useState("");
   const [diagramUrl, setDiagramUrl] = useState("");
   const [diagramSize, setDiagramSize] = useState({ width: 0, height: 0 });
-  const [openApiDiagramSize, setOpenApiDiagramSize] = useState({
-    width: 0,
-    height: 0,
-  });
-  const [openApiDiagram, setOpenApiDiagram] = useState<OpenApiDocument | null>(
-    null
-  );
   const [fixtures, setFixtures] = useState<PlantUmlFixture[]>([]);
   const [fixturesLoading, setFixturesLoading] = useState(false);
   const [fixturesError, setFixturesError] = useState<string | null>(null);
+  const [transformError, setTransformError] = useState<string | null>(null);
   const [selectedFixtureId, setSelectedFixtureId] = useState("");
+  const transformRequestRef = useRef(0);
+  const transformAbortRef = useRef<AbortController | null>(null);
   const { transform } = useTransformator();
   const fixturesByCategory = useMemo(() => {
     const categoryOrder = [
@@ -45,7 +39,7 @@ export const useDashboard = () => {
         acc[fixture.category].push(fixture);
         return acc;
       },
-      {}
+      {},
     );
 
     return Object.entries(grouped)
@@ -63,41 +57,65 @@ export const useDashboard = () => {
       .map(([category, entries]) => ({
         category,
         fixtures: entries.sort((left, right) =>
-          left.label.localeCompare(right.label)
+          left.label.localeCompare(right.label),
         ),
       }));
   }, [fixtures]);
-
-  const openApiPlantUmlDefinition = useMemo(
-    () => buildOpenApiPlantUmlDiagram(openApiDiagram),
-    [openApiDiagram]
-  );
-
-  const openApiDiagramUrl = useMemo(() => {
-    if (!openApiPlantUmlDefinition) {
-      return "";
+  const openApiSchemaRoute = useMemo(() => {
+    if (selectedFixtureId) {
+      return `/api/openapi-schema?spec=${encodeURIComponent(selectedFixtureId)}`;
     }
 
-    return `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(
-      openApiPlantUmlDefinition
-    )}`;
-  }, [openApiPlantUmlDefinition]);
+    return `/api/openapi-schema?uml=${plantumlEncoder.encode(plantUmlCode)}`;
+  }, [plantUmlCode, selectedFixtureId]);
 
   const updateOutputs = useCallback(
-    (uml: string) => {
-      const diagram = transform(uml);
+    async (uml: string) => {
+      const requestId = transformRequestRef.current + 1;
+      transformRequestRef.current = requestId;
+      transformAbortRef.current?.abort();
+
+      const abortController = new AbortController();
+      transformAbortRef.current = abortController;
+
       setDiagramUrl(
-        `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(uml)}`
+        `https://www.plantuml.com/plantuml/png/${plantumlEncoder.encode(uml)}`,
       );
-      setOpenApiSchema(stringifyOpenApiDocument(diagram));
-      setOpenApiDiagram(diagram);
+      setTransformError(null);
+
+      try {
+        const schema = await transform(uml, abortController.signal);
+        if (requestId !== transformRequestRef.current) {
+          return;
+        }
+
+        setOpenApiSchema(schema);
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        console.error(error);
+        setOpenApiSchema("");
+        setTransformError(
+          error instanceof Error
+            ? error.message
+            : "Nepavyko transformuoti PlantUML į OpenAPI.",
+        );
+      }
     },
-    [transform]
+    [transform],
   );
 
   useEffect(() => {
-    updateOutputs(DEFAULT_PLANTUML);
+    void updateOutputs(DEFAULT_PLANTUML);
   }, [updateOutputs]);
+
+  useEffect(() => {
+    return () => {
+      transformAbortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (!diagramUrl) {
@@ -125,32 +143,6 @@ export const useDashboard = () => {
   }, [diagramUrl]);
 
   useEffect(() => {
-    if (!openApiDiagramUrl) {
-      setOpenApiDiagramSize({ width: 0, height: 0 });
-      return;
-    }
-
-    let isCancelled = false;
-    const image = new Image();
-    image.src = openApiDiagramUrl;
-    image.onload = () => {
-      if (isCancelled) return;
-      setOpenApiDiagramSize({
-        width: image.naturalWidth,
-        height: image.naturalHeight,
-      });
-    };
-    image.onerror = () => {
-      if (isCancelled) return;
-      setOpenApiDiagramSize({ width: 0, height: 0 });
-    };
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [openApiDiagramUrl]);
-
-  useEffect(() => {
     const fetchFixtures = async () => {
       try {
         setFixturesLoading(true);
@@ -175,7 +167,7 @@ export const useDashboard = () => {
   const handleUmlChange = (event: string) => {
     setPlantUmlCode(event);
     setSelectedFixtureId("");
-    updateOutputs(event);
+    void updateOutputs(event);
   };
 
   const handleFixtureChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -191,7 +183,7 @@ export const useDashboard = () => {
     }
 
     setPlantUmlCode(selected.content);
-    updateOutputs(selected.content);
+    void updateOutputs(selected.content);
   };
 
   const handleFileUpload = useCallback(
@@ -206,7 +198,7 @@ export const useDashboard = () => {
       const fileContents = await file.text();
       setSelectedFixtureId("");
       setPlantUmlCode(fileContents);
-      updateOutputs(fileContents);
+      void updateOutputs(fileContents);
     },
     [updateOutputs],
   );
@@ -214,9 +206,9 @@ export const useDashboard = () => {
   return {
     diagramUrl,
     diagramSize,
-    openApiDiagramUrl,
-    openApiDiagramSize,
     openApiSchema,
+    transformError,
+    openApiSchemaRoute,
     selectedFixtureId,
     handleFixtureChange,
     fixturesLoading,

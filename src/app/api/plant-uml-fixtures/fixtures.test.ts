@@ -16,4 +16,12 @@ describe("loadPlantUmlFixtures", () => {
     });
     expect(petstore?.content).toContain("@startuml");
   });
+
+  it("excludes documentation-only activity diagrams", async () => {
+    const fixtures = await loadPlantUmlFixtures();
+
+    expect(
+      fixtures.find((fixture) => fixture.id === "plantuml-transform-activity"),
+    ).toBeUndefined();
+  });
 });

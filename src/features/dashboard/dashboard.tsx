@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
 import { CodeEditor } from "../editor/code-editor";
 import { useDashboard } from "./useDashboard";
 import { useResiziblePanel } from "./useResizeablePanel";
@@ -31,9 +32,9 @@ export default function Dashboard() {
   const {
     diagramUrl,
     diagramSize,
-    openApiDiagramUrl,
-    openApiDiagramSize,
     openApiSchema,
+    transformError,
+    openApiSchemaRoute,
     selectedFixtureId,
     handleFixtureChange,
     fixturesLoading,
@@ -67,6 +68,12 @@ export default function Dashboard() {
     link.remove();
     URL.revokeObjectURL(downloadUrl);
   }, [openApiSchema]);
+  const handleOpenSwaggerEditor = useCallback(() => {
+    const schemaUrl = new URL(openApiSchemaRoute, window.location.origin);
+    const swaggerEditorUrl = new URL("https://editor.swagger.io/");
+    swaggerEditorUrl.searchParams.set("url", schemaUrl.toString());
+    window.location.assign(swaggerEditorUrl.toString());
+  }, [openApiSchemaRoute]);
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
@@ -149,15 +156,31 @@ export default function Dashboard() {
                 title="OpenAPI Schema"
                 className="h-1/2 w-full border-t border-gray-200 dark:border-gray-700 md:h-full md:w-1/2 md:border-t-0"
                 headerActions={
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDownloadSchema}
-                    >
-                      Download YAML
-                    </Button>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenSwaggerEditor}
+                        disabled={!openApiSchema}
+                      >
+                        <ExternalLink className="size-4" aria-hidden="true" />
+                        Swagger Editor
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadSchema}
+                        disabled={!openApiSchema}
+                      >
+                        Download YAML
+                      </Button>
+                    </div>
+                    {transformError && (
+                      <p className="text-xs text-red-500">{transformError}</p>
+                    )}
                   </div>
                 }
               >
